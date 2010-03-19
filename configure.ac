@@ -2,10 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.15])
-AC_INIT([rnaip], [0.0.1], [satoken@k.u-tokyo.ac.jp])
+AC_INIT([ractip], [0.0.1], [satoken@k.u-tokyo.ac.jp])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AM_CONFIG_HEADER(config.h)
-AC_CONFIG_SRCDIR([src/rnaip.cpp])
+AC_CONFIG_SRCDIR([src/ractip.cpp])
 
 # Checks for programs.
 AC_PROG_CXX
