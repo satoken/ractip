@@ -1,6 +1,8 @@
 #include "config.h"
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <list>
@@ -28,7 +30,7 @@ class RNAIP
 {
 public:
   RNAIP(float th_hy, float th_ss, float alpha, bool in_pk,
-        bool use_contrafold, bool use_stacked_bp, bool stacking_constraints, int n_th)
+        bool use_contrafold, bool use_stacked_bp, bool stacking_constraints, int n_th, const char* rip_file)
     : env_(NULL),
       model_(NULL),
       th_hy_(th_hy),
@@ -38,7 +40,8 @@ public:
       use_contrafold_(use_contrafold),
       use_stacked_bp_(use_stacked_bp),
       stacking_constraints_(stacking_constraints),
-      n_th_(n_th)
+      n_th_(n_th),
+      rip_file_(rip_file)
   {
     env_ = new GRBEnv;
     env_->set(GRB_IntParam_Threads, n_th_); // # of threads
@@ -71,7 +74,7 @@ private:
   void rnaduplex(const std::string& seq1, const std::string& seq2,
                  boost::multi_array<GRBVar, 2>& v, boost::multi_array<GRBVar, 2>& vv,
                  boost::multi_array<bool, 2>& e, boost::multi_array<bool, 2>& ee);
-
+  void load_from_rip(const char* filename);
 
 private:
   GRBEnv* env_;
@@ -86,6 +89,7 @@ private:
   bool use_stacked_bp_;
   bool stacking_constraints_;
   int n_th_;                   // the number of threads
+  const char* rip_file_;
   
   // binary variables
   boost::multi_array<GRBVar, 2> x_;
@@ -354,6 +358,57 @@ rnaduplex(const std::string& s1, const std::string& s2,
 
 void
 RNAIP::
+load_from_rip(const char* filename)
+{
+  enum { NONE, TABLE_R, TABLE_S, TABLE_I };
+  uint st=NONE;
+  uint y_len=y_.size();
+  std::ifstream is(filename);
+  std::string l;
+  while (std::getline(is, l))
+  {
+    if (strncmp(l.c_str(), "Table R:", 8)==0) st=TABLE_R;
+    else if (strncmp(l.c_str(), "Table S:", 8)==0) st=TABLE_S;
+    else if (strncmp(l.c_str(), "Table I:", 8)==0) st=TABLE_I;
+    else if (st!=NONE && l[0]>='0' && l[0]<='9')
+    {
+      int i,j;
+      double p;
+      std::istringstream s(l.c_str());
+      s >> i >> j >> p;
+      switch (st)
+      {
+        case TABLE_R:
+          if (p>th_ss_)
+          {
+            x_[i-1][j-1] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+            ex_[i-1][j-1] = true;
+          }
+          break;
+        case TABLE_S:
+          if (p>th_ss_)
+          {
+            y_[y_len-j][y_len-i] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+            ey_[y_len-j][y_len-i] = true;
+          }
+          break;
+        case TABLE_I:
+          if (p>th_hy_)
+          {
+            z_[i-1][y_len-j] = model_->addVar(0.0, 1.0, -p*alpha_, GRB_BINARY);
+            ez_[i-1][y_len-j] = true;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    else st=NONE;
+  }
+}
+
+void
+RNAIP::
 solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
 {
   x_.resize(boost::extents[s1.size()][s1.size()]);
@@ -369,35 +424,44 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   ez_.resize(boost::extents[s1.size()][s2.size()]);
   ezz_.resize(boost::extents[s1.size()][s2.size()]);
 
-  if (use_contrafold_)
+  if (rip_file_)
   {
-    if (use_stacked_bp_)
-    {
-      contrafold(s1, x_, xx_, ex_, exx_);
-      contrafold(s2, y_, yy_, ey_, eyy_);
-      contraduplex(s1, s2, z_, zz_, ez_, ezz_);
-    }
-    else
-    {
-      contrafold(s1, x_, ex_);
-      contrafold(s2, y_, ey_);
-      contraduplex(s1, s2, z_, ez_);
-    }
+    load_from_rip(rip_file_);
   }
   else
   {
-    Vienna::pf_scale = -1;
-    if (use_stacked_bp_)
+    if (use_contrafold_)
     {
-      rnafold(s1, x_, xx_, ex_, exx_);
-      rnafold(s2, y_, yy_, ey_, eyy_);
-      rnaduplex(s1, s2, z_, zz_, ez_, ezz_);
+      if (use_stacked_bp_)
+      {
+        contrafold(s1, x_, xx_, ex_, exx_);
+        contrafold(s2, y_, yy_, ey_, eyy_);
+        //contraduplex(s1, s2, z_, zz_, ez_, ezz_);
+        rnaduplex(s1, s2, z_, zz_, ez_, ezz_);
+      }
+      else
+      {
+        contrafold(s1, x_, ex_);
+        contrafold(s2, y_, ey_);
+        //contraduplex(s1, s2, z_, ez_);
+        rnaduplex(s1, s2, z_, ez_);
+      }
     }
     else
     {
-      rnafold(s1, x_, ex_);
-      rnafold(s2, y_, ey_);
-      rnaduplex(s1, s2, z_, ez_);
+      Vienna::pf_scale = -1;
+      if (use_stacked_bp_)
+      {
+        rnafold(s1, x_, xx_, ex_, exx_);
+        rnafold(s2, y_, yy_, ey_, eyy_);
+        rnaduplex(s1, s2, z_, zz_, ez_, ezz_);
+      }
+      else
+      {
+        rnafold(s1, x_, ex_);
+        rnafold(s2, y_, ey_);
+        rnaduplex(s1, s2, z_, ez_);
+      }
     }
   }
 
@@ -672,7 +736,8 @@ main(int argc, char* argv[])
   bool stacked_bp=false;
   bool use_contrafold=false;
   int n_th=1;
-  while ((ch=getopt(argc, argv, "a:t:u:pcisn:h"))!=-1)
+  const char* rip_file=NULL;
+  while ((ch=getopt(argc, argv, "a:t:u:pcisn:r:h"))!=-1)
   {
     switch (ch)
     {
@@ -699,6 +764,9 @@ main(int argc, char* argv[])
         break;
       case 'n':
         n_th=atoi(optarg);
+        break;
+      case 'r':
+        rip_file=optarg;
         break;
       case 'h': case '?': default:
         usage(progname);
@@ -734,7 +802,7 @@ main(int argc, char* argv[])
   std::string r1, r2;
   //try {
     RNAIP rnaip(th_hy, th_bp, alpha, in_pk,
-                use_contrafold, stacked_bp, !isolated_bp, n_th);
+                use_contrafold, stacked_bp, !isolated_bp, n_th, rip_file);
     rnaip.solve(fa1.seq(), fa2.seq(), r1, r2);
 #if 0
   } catch (GRBException e) {
