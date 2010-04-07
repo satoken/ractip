@@ -137,7 +137,7 @@ contrafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::mult
       float p=bp[en.GetOffset(i+1)+(j+1)];
       if (p>th_ss_)
       {
-        v[i][j] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+        v[i][j] = model_->addVar(0, 1, -p, GRB_BINARY);
         e[i][j] = true;
       }
     }
@@ -172,7 +172,7 @@ contrafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::mult
         if (p>th_ss_)
         {
           v[i][j] = model_->addVar(0, 1, 0, GRB_BINARY);
-          vv[i][j] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+          vv[i][j] = model_->addVar(0, 1, -p, GRB_BINARY);
           e[i][j] = ee[i][j] = true;
           if (!e[i+1][j-1])
           {
@@ -268,7 +268,7 @@ rnafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::multi_a
       float p=Vienna::pr[Vienna::iindx[i+1]-(j+1)];
       if (p>th_ss_)
       {
-        v[i][j] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+        v[i][j] = model_->addVar(0, 1, -p, GRB_BINARY);
         e[i][j] = true;
       }
     }
@@ -293,7 +293,7 @@ rnafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::multi_a
         if (p>th_ss_)
         {
           v[i][j] = model_->addVar(0, 1, 0, GRB_BINARY);
-          vv[i][j] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+          vv[i][j] = model_->addVar(0, 1, -p, GRB_BINARY);
           e[i][j] = ee[i][j] = true;
           if (!e[i+1][j-1])
           {
@@ -381,14 +381,14 @@ load_from_rip(const char* filename)
         case TABLE_R:
           if (p>th_ss_)
           {
-            x_[i-1][j-1] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+            x_[i-1][j-1] = model_->addVar(0, 1, -p, GRB_BINARY);
             ex_[i-1][j-1] = true;
           }
           break;
         case TABLE_S:
           if (p>th_ss_)
           {
-            y_[y_len-j][y_len-i] = model_->addVar(0, 1, -p*(1-alpha_), GRB_BINARY);
+            y_[y_len-j][y_len-i] = model_->addVar(0, 1, -p, GRB_BINARY);
             ey_[y_len-j][y_len-i] = true;
           }
           break;
