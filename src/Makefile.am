@@ -1,7 +1,7 @@
 bin_PROGRAMS = ractip
 
 ractip_SOURCES = \
-	ractip.cpp pf_duplex.c pf_duplex.h fa.cpp fa.h cyktable.h \
+	ractip.cpp pf_duplex.c pf_duplex.h fa.cpp fa.h \
 	contrafold/InferenceEngine.hpp contrafold/InferenceEngine.ipp \
 	contrafold/DuplexEngine.hpp contrafold/DuplexEngine.ipp \
 	contrafold/ParameterManager.hpp contrafold/ParameterManager.ipp \

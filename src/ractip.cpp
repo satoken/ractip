@@ -496,14 +496,14 @@ void
 usage(const char* progname)
 {
   std::cout << progname << ": [options] fasta1 fasta2" << std::endl
-            << " -h:        show this message" << std::endl
-            << " -p:        do not use the constraints for interenal pseudoknots" << std::endl
-            << " -a alpha:  weight for hybridation probabilities (default: 0.5)" << std::endl
-            << " -t th_bp:  threshold of base-pairing probabilities (default: 0.5)" << std::endl
-            << " -u th_hy:  threshold of hybridazation probabilities (default: 0.2)" << std::endl
-            << " -m:        use McCaskill model (default: CONTRAfold model)" << std::endl
-            << " -i:        allow isolated base-pairs" << std::endl
-            << " -n n_th:   specify the number of threads (default: 1)" << std::endl;
+            << " -h:       show this message" << std::endl
+            << " -p:       do not use the constraints for interenal pseudoknots" << std::endl
+            << " -a alpha: weight for hybridation probabilities (default: 0.5)" << std::endl
+            << " -t th_bp: threshold of base-pairing probabilities (default: 0.5)" << std::endl
+            << " -u th_hy: threshold of hybridazation probabilities (default: 0.2)" << std::endl
+            << " -m:       use McCaskill model (default: CONTRAfold model)" << std::endl
+            << " -i:       allow isolated base-pairs" << std::endl
+            << " -n n_th:  specify the number of threads (default: 1)" << std::endl;
 }
 
 int
