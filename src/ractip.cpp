@@ -29,7 +29,12 @@
 #include <list>
 #include <boost/multi_array.hpp>
 #include "fa.h"
+#ifdef WITH_GUROBI
 #include "gurobi_c++.h"
+#endif
+#ifdef WITH_CPLEX
+#include <ilcplex/ilocplex.h>
+#endif
 
 #include "contrafold/SStruct.hpp"
 #include "contrafold/InferenceEngine.hpp"
@@ -47,11 +52,460 @@ extern "C" {
 
 typedef unsigned int uint;
 
-class RNAIP
+#ifdef WITH_CPLEX
+class RactIP
 {
 public:
-  RNAIP(float th_hy, float th_ss, float alpha, bool in_pk,
-        bool use_contrafold, bool stacking_constraints, int n_th, const char* rip_file)
+  RactIP(float th_hy, float th_ss, float alpha, bool in_pk,
+         bool use_contrafold, bool stacking_constraints, int n_th, const char* rip_file)
+    : env_(),
+      model_(env_),
+      th_hy_(th_hy),
+      th_ss_(th_ss),
+      alpha_(alpha),
+      in_pk_(in_pk),
+      use_contrafold_(use_contrafold),
+      stacking_constraints_(stacking_constraints),
+      n_th_(n_th),
+      rip_file_(rip_file),
+      x_(env_), y_(env_), z_(env_),
+      x_up_(env_), x_down_(env_),
+      y_up_(env_), y_down_(env_),
+      z_up_(env_), z_down_(env_)
+  {
+  }
+
+  ~RactIP()
+  {
+  }
+
+  void solve(const std::string& s1, const std::string& s2,
+             std::string& r1, std::string& r2);
+
+private:
+  void contrafold(const std::string& seq, IloBoolVarArray& v, boost::multi_array<int, 2>& e, IloExpr& obj);
+  void contraduplex(const std::string& seq1, const std::string& seq2, IloBoolVarArray& v,
+                    boost::multi_array<int, 2>& e, IloExpr& obj);
+  void rnafold(const std::string& seq, IloBoolVarArray& v, boost::multi_array<int, 2>& e, IloExpr& obj);
+  void rnaduplex(const std::string& seq1, const std::string& seq2, IloBoolVarArray& v,
+                 boost::multi_array<int, 2>& e, IloExpr& obj);
+  void load_from_rip(const char* filename, IloExpr& obj);
+
+private:
+  IloEnv env_;
+  IloModel model_;
+  
+  // options
+  float th_hy_;                // threshold for the hybridization probability
+  float th_ss_;                // threshold for the base-pairing probability
+  float alpha_;                // weight for the hybridization score
+  bool in_pk_;                 // allow internal pseudoknots or not
+  bool use_contrafold_;        // use CONTRAfold model or not
+  bool stacking_constraints_;
+  int n_th_;                   // the number of threads
+  const char* rip_file_;
+  
+  // binary variables
+  IloBoolVarArray x_;
+  IloBoolVarArray y_;
+  IloBoolVarArray z_;
+  IloBoolVarArray x_up_;
+  IloBoolVarArray x_down_;
+  IloBoolVarArray y_up_;
+  IloBoolVarArray y_down_;
+  IloBoolVarArray z_up_;
+  IloBoolVarArray z_down_;
+
+  boost::multi_array<int, 2> ex_;
+  boost::multi_array<int, 2> ey_;
+  boost::multi_array<int, 2> ez_;
+};
+
+void
+RactIP::
+contrafold(const std::string& seq, IloBoolVarArray& v, boost::multi_array<int, 2>& e, IloExpr& obj) 
+{
+  SStruct ss("unknown", seq);
+  ParameterManager<float> pm;
+  InferenceEngine<float> en(false);
+  std::vector<float> w = GetDefaultComplementaryValues<float>();
+  std::vector<float> bp((seq.size()+1)*(seq.size()+2)/2, 0.0);
+  en.RegisterParameters(pm);
+  en.LoadValues(w);
+  en.LoadSequence(ss);
+  en.ComputeInside();
+  en.ComputeOutside();
+  en.ComputePosterior();
+  en.GetPosterior(th_ss_, bp);
+
+  for (uint j=1; j!=seq.size(); ++j)
+  {
+    for (uint i=j-1; i!=-1u; --i)
+    {
+      float p=bp[en.GetOffset(i+1)+(j+1)];
+      if (p>th_ss_)
+      {
+        e[i][j] = v.getSize();
+        v.add(IloBoolVar(env_));
+        obj += p * v[e[i][j]];
+      }
+    }
+  }
+}    
+
+void
+RactIP::
+contraduplex(const std::string& seq1, const std::string& seq2, IloBoolVarArray& v,
+             boost::multi_array<int, 2>& e, IloExpr& obj)
+{
+  SStruct ss1("unknown", seq1), ss2("unknown", seq2);
+  ParameterManager<float> pm;
+  DuplexEngine<float> en(false);
+  std::vector<float> w = GetDefaultComplementaryValues<float>();
+  std::vector<float> ip;
+  en.RegisterParameters(pm);
+  en.LoadValues(w);
+  en.LoadSequence(ss1, ss2);
+  en.ComputeInside();
+  en.ComputeOutside();
+  en.ComputePosterior();
+  en.GetPosterior(th_hy_, ip);
+  for (uint i=0; i!=seq1.size(); ++i)
+  {
+    for (uint j=0; j!=seq2.size(); ++j)
+    {
+      float p=ip[en.GetOffset(i+1)+(j+1)];
+      if (p>th_hy_)
+      {
+        e[i][j] = v.getSize();
+        v.add(IloBoolVar(env_));
+        obj += p*alpha_ * v[e[i][j]];
+      }
+    }
+  }
+}
+
+void
+RactIP::
+rnafold(const std::string& seq, IloBoolVarArray& v, boost::multi_array<int, 2>& e, IloExpr& obj)
+{
+  Vienna::init_pf_fold(seq.size());
+  Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  for (uint i=0; i!=seq.size()-1; ++i)
+  {
+    for (uint j=i+1; j!=seq.size(); ++j)
+    {
+      float p=Vienna::pr[Vienna::iindx[i+1]-(j+1)];
+      if (p>th_ss_)
+      {
+        e[i][j] = v.getSize();
+        v.add(IloBoolVar(env_));
+        obj += p * v[e[i][j]];
+      }
+    }
+  }
+  Vienna::free_pf_arrays();
+}
+
+void
+RactIP::
+rnaduplex(const std::string& s1, const std::string& s2, IloBoolVarArray& v,
+          boost::multi_array<int, 2>& e, IloExpr& obj)
+{
+  Vienna::pf_duplex(s1.c_str(), s2.c_str());
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    for (uint j=0; j!=s2.size(); ++j)
+    {
+      float p=Vienna::pr_duplex[i+1][j+1];
+      if (p>th_hy_)
+      {
+        e[i][j] = v.getSize();
+        v.add(IloBoolVar(env_));
+        obj += p*alpha_ * v[e[i][j]];
+      }
+    }
+  }
+  Vienna::free_pf_duplex();
+}
+
+void
+RactIP::
+load_from_rip(const char* filename, IloExpr& obj)
+{
+  enum { NONE, TABLE_R, TABLE_S, TABLE_I };
+  uint st=NONE;
+  uint y_len=ey_.size();
+  std::ifstream is(filename);
+  std::string l;
+  while (std::getline(is, l))
+  {
+    if (strncmp(l.c_str(), "Table R:", 8)==0) st=TABLE_R;
+    else if (strncmp(l.c_str(), "Table S:", 8)==0) st=TABLE_S;
+    else if (strncmp(l.c_str(), "Table I:", 8)==0) st=TABLE_I;
+    else if (st!=NONE && l[0]>='0' && l[0]<='9')
+    {
+      int i,j;
+      double p;
+      std::istringstream s(l.c_str());
+      s >> i >> j >> p;
+      switch (st)
+      {
+        case TABLE_R:
+          if (p>th_ss_)
+          {
+            ex_[i-1][j-1] = x_.getSize();
+            x_.add(IloBoolVar(env_));
+            obj += p * x_[ex_[i-1][j-1]];
+          }
+          break;
+        case TABLE_S:
+          if (p>th_ss_)
+          {
+            ey_[y_len-j][y_len-i] = y_.getSize();
+            y_.add(IloBoolVar(env_));
+            obj += p * y_[ey_[y_len-j][y_len-i]];
+          }
+          break;
+        case TABLE_I:
+          if (p>th_hy_)
+          {
+            ez_[i-1][y_len-j] = z_.getSize();
+            z_.add(IloBoolVar(env_));
+            obj += p*alpha_ * z_[ez_[i-1][y_len-j]];
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    else st=NONE;
+  }
+}
+
+void
+RactIP::
+solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
+{
+  ex_.resize(boost::extents[s1.size()][s1.size()]);
+  std::fill(ex_.data(), ex_.data()+ex_.num_elements(), -1);
+  ey_.resize(boost::extents[s2.size()][s2.size()]);
+  std::fill(ey_.data(), ey_.data()+ey_.num_elements(), -1);
+  ez_.resize(boost::extents[s1.size()][s2.size()]);
+  std::fill(ez_.data(), ez_.data()+ez_.num_elements(), -1);
+  IloExpr obj(env_);
+
+  if (rip_file_)
+  {
+    load_from_rip(rip_file_, obj);
+  }
+  else
+  {
+    if (use_contrafold_)
+    {
+      contrafold(s1, x_, ex_, obj);
+      contrafold(s2, y_, ey_, obj);
+      //contraduplex(s1, s2, z_, ez_, obj);
+      rnaduplex(s1, s2, z_, ez_, obj);
+    }
+    else
+    {
+      Vienna::pf_scale = -1;
+      rnafold(s1, x_, ex_, obj);
+      rnafold(s2, y_, ey_, obj);
+      rnaduplex(s1, s2, z_, ez_, obj);
+    }
+  }
+  model_.add(IloMaximize(env_, obj));
+
+  if (stacking_constraints_)
+  {
+    for (uint i=0; i!=s1.size(); ++i)
+    {
+      x_up_.add(IloBoolVar(env_));
+      x_down_.add(IloBoolVar(env_));
+    }
+
+    for (uint i=0; i!=s2.size(); ++i)
+    {
+      y_up_.add(IloBoolVar(env_));
+      y_down_.add(IloBoolVar(env_));
+    }
+  
+    for (uint j=0; j!=s2.size(); ++j)
+      z_up_.add(IloBoolVar(env_));
+    for (uint i=0; i!=s1.size(); ++i)
+      z_down_.add(IloBoolVar(env_));
+  }
+
+  // constraint 1: each a_i is paired with at most one base
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    IloExpr c1(env_);
+    for (uint j=0; j!=s2.size(); ++j) if (ez_[i][j]>=0) c1 += z_[ez_[i][j]];
+    for (uint j=0; j<i; ++j) if (ex_[j][i]>=0) c1 += x_[ex_[j][i]];
+    for (uint j=i+1; j<s1.size(); ++j) if (ex_[i][j]>=0) c1 += x_[ex_[i][j]];
+    model_.add(c1 <= 1);
+  }
+
+  // constraint 2: each b_i is paired with at moat one
+  for (uint i=0; i!=s2.size(); ++i)
+  {
+    IloExpr c2(env_);
+    for (uint j=0; j!=s1.size(); ++j) if (ez_[j][i]>=0) c2 += z_[ez_[j][i]];
+    for (uint j=0; j<i; ++j) if (ey_[j][i]>=0) c2 += y_[ey_[j][i]];
+    for (uint j=i+1; j<s2.size(); ++j) if (ey_[i][j]>=0) c2 += y_[ey_[i][j]];
+    model_.add(c2 <= 1);
+  }
+
+  // constraint 3: disallow external pseudoknots
+  for (uint i=0; i<s1.size(); ++i)
+    for (uint k=i+1; k<s1.size(); ++k)
+      for (uint j=0; j<s2.size(); ++j)
+        if (ez_[i][j]>=0)
+          for (uint l=j+1; l<s2.size(); ++l)
+            if (ez_[k][l]>=0)
+              model_.add(z_[ez_[i][j]]+z_[ez_[k][l]] <= 1);
+
+  if (in_pk_)
+  {
+    // constraint 4: disallow internal pseudoknots in a
+    for (uint i=0; i<s1.size(); ++i)
+      for (uint k=i+1; k<s1.size(); ++k)
+        for (uint j=k+1; j<s1.size(); ++j)
+          if (ex_[i][j]>=0)
+            for (uint l=j+1; l<s1.size(); ++l)
+              if (ex_[k][l]>=0)
+                model_.add(x_[ex_[i][j]]+x_[ex_[k][l]] <= 1);
+
+    // constraint 5: disallow internal pseudoknots in b
+    for (uint i=0; i<s2.size(); ++i)
+      for (uint k=i+1; k<s2.size(); ++k)
+        for (uint j=k+1; j<s2.size(); ++j)
+          if (ey_[i][j]>=0)
+            for (uint l=j+1; l<s2.size(); ++l)
+              if (ey_[k][l]>=0)
+                model_.add(y_[ey_[i][j]]+y_[ey_[k][l]] <= 1);
+  }
+
+  if (stacking_constraints_)
+  {
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      IloExpr c_up1(env_);
+      for (uint j=0; j<i; ++j) if (ex_[j][i]>=0) c_up1 += x_[ex_[j][i]];
+      model_.add(c_up1-x_up_[i] == 0);
+      IloExpr c_down1(env_);
+      for (uint j=i+1; j<s1.size(); ++j) if (ex_[i][j]>=0) c_down1 += x_[ex_[i][j]];
+      model_.add(c_down1-x_down_[i] == 0);
+
+      IloExpr c_up2 = 1-x_up_[i];
+      if (i>0) c_up2 += x_up_[i-1];
+      if (i+1<s1.size()) c_up2 += x_up_[i+1];
+      model_.add(c_up2 >= 1);
+      IloExpr c_down2 = 1-x_down_[i];
+      if (i>0) c_down2 += x_down_[i-1];
+      if (i+1<s1.size()) c_down2 += x_down_[i+1];
+      model_.add(c_down2 >= 1);
+    }
+
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      IloExpr c_up1(env_);
+      for (uint j=0; j<i; ++j) if (ey_[j][i]>=0) c_up1 += y_[ey_[j][i]];
+      model_.add(c_up1-y_up_[i] == 0);
+      IloExpr c_down1(env_);
+      for (uint j=i+1; j<s2.size(); ++j) if (ey_[i][j]>=0) c_down1 += y_[ey_[i][j]];
+      model_.add(c_down1-y_down_[i] == 0);
+
+      IloExpr c_up2 = 1-y_up_[i];
+      if (i>0) c_up2 += y_up_[i-1];
+      if (i+1<s2.size()) c_up2 += y_up_[i+1];
+      model_.add(c_up2 >= 1);
+      IloExpr c_down2 = 1-y_down_[i];
+      if (i>0) c_down2 += y_down_[i-1];
+      if (i+1<s2.size()) c_down2 += y_down_[i+1];
+      model_.add(c_down2 >= 1);
+    }
+
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      IloExpr c_up1(env_);
+      for (uint j=0; j<s1.size(); ++j) if (ez_[j][i]>=0) c_up1 += z_[ez_[j][i]];
+      model_.add(c_up1-z_up_[i] == 0);
+
+      IloExpr c_up2 = 1-z_up_[i];
+      if (i>0) c_up2 += z_up_[i-1];
+      if (i+1<s2.size()) c_up2 += z_up_[i+1];
+      model_.add(c_up2 >= 1);
+    }
+
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      IloExpr c_down1(env_);
+      for (uint j=0; j<s2.size(); ++j) if (ez_[i][j]>=0) c_down1 += z_[ez_[i][j]];
+      model_.add(c_down1-z_down_[i] == 0);
+
+      IloExpr c_down2 = 1-z_down_[i];
+      if (i>0) c_down2 += z_down_[i-1];
+      if (i+1<s1.size()) c_down2 += z_down_[i+1];
+      model_.add(c_down2 >= 1);
+    }
+  }
+
+  // execute optimization
+  IloCplex cplex(model_);
+  cplex.solve();
+
+  // build the resultant structure
+  r1.resize(s1.size());
+  r2.resize(s2.size());
+  std::fill(r1.begin(), r1.end(), '.');
+  std::fill(r2.begin(), r2.end(), '.');
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    for (uint j=0; j!=s2.size(); ++j)
+    {
+      if (ez_[i][j]>=0 && cplex.getValue(z_[ez_[i][j]])>0.5)
+      {
+        r1[i]='['; r2[j]=']';
+      }
+    }
+  }
+  if (in_pk_)
+  {
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      for (uint j=i+1; j<s1.size(); ++j)
+      {
+        if (ex_[i][j]>=0 && cplex.getValue(x_[ex_[i][j]])>0.5)
+        {
+          assert(r1[i]=='.'); assert(r1[j]=='.');
+          r1[i]='('; r1[j]=')';
+        }
+      }
+    }
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      for (uint j=i+1; j<s2.size(); ++j)
+      {
+        if (ey_[i][j]>=0 && cplex.getValue(y_[ey_[i][j]])>0.5)
+        {
+          assert(r2[i]=='.'); assert(r2[j]=='.');
+          r2[i]='('; r2[j]=')';
+        }
+      }
+    }
+  }
+}
+#endif  // WITH_CPLEX
+
+#ifdef WITH_GUROBI
+class RactIP
+{
+public:
+  RactIP(float th_hy, float th_ss, float alpha, bool in_pk,
+         bool use_contrafold, bool stacking_constraints, int n_th, const char* rip_file)
     : env_(NULL),
       model_(NULL),
       th_hy_(th_hy),
@@ -68,7 +522,7 @@ public:
     model_ = new GRBModel(*env_);
   }
 
-  ~RNAIP()
+  ~RactIP()
   {
     delete model_;
     delete env_;
@@ -117,7 +571,7 @@ private:
 };
 
 void
-RNAIP::
+RactIP::
 contrafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::multi_array<bool, 2>& e) 
 {
   SStruct ss("unknown", seq);
@@ -148,7 +602,7 @@ contrafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::mult
 }    
 
 void
-RNAIP::
+RactIP::
 contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<GRBVar, 2>& v,
              boost::multi_array<bool, 2>& e)
 {
@@ -179,7 +633,7 @@ contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_arra
 }
 
 void
-RNAIP::
+RactIP::
 rnafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::multi_array<bool, 2>& e)
 {
   Vienna::init_pf_fold(seq.size());
@@ -200,7 +654,7 @@ rnafold(const std::string& seq, boost::multi_array<GRBVar, 2>& v, boost::multi_a
 }
 
 void
-RNAIP::
+RactIP::
 rnaduplex(const std::string& s1, const std::string& s2, boost::multi_array<GRBVar, 2>& v,
           boost::multi_array<bool, 2>& e)
 {
@@ -221,7 +675,7 @@ rnaduplex(const std::string& s1, const std::string& s2, boost::multi_array<GRBVa
 }
 
 void
-RNAIP::
+RactIP::
 load_from_rip(const char* filename)
 {
   enum { NONE, TABLE_R, TABLE_S, TABLE_I };
@@ -272,7 +726,7 @@ load_from_rip(const char* filename)
 }
 
 void
-RNAIP::
+RactIP::
 solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
 {
   x_.resize(boost::extents[s1.size()][s1.size()]);
@@ -491,6 +945,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 }
+#endif  // WITH_GUROBI
 
 void
 usage(const char* progname)
@@ -580,17 +1035,9 @@ main(int argc, char* argv[])
 
   // predict the interation
   std::string r1, r2;
-  //try {
-    RNAIP rnaip(th_hy, th_bp, alpha, in_pk,
+  RactIP ractip(th_hy, th_bp, alpha, in_pk,
                 use_contrafold, !isolated_bp, n_th, rip_file);
-    rnaip.solve(fa1.seq(), fa2.seq(), r1, r2);
-#if 0
-  } catch (GRBException e) {
-    std::cout << "Error code = " << e.getErrorCode() << std::endl;
-    std::cout << e.getMessage() << std::endl;
-    throw;
-  }
-#endif
+  ractip.solve(fa1.seq(), fa2.seq(), r1, r2);
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
