@@ -29,11 +29,14 @@
 #include <list>
 #include <boost/multi_array.hpp>
 #include "fa.h"
-#ifdef WITH_GUROBI
-#include "gurobi_c++.h"
+#ifdef WITH_GLPK
+#include <glpk.h>
 #endif
 #ifdef WITH_CPLEX
 #include <ilcplex/ilocplex.h>
+#endif
+#ifdef WITH_GUROBI
+#include "gurobi_c++.h"
 #endif
 
 #include "contrafold/SStruct.hpp"
@@ -51,6 +54,619 @@ extern "C" {
 };
 
 typedef unsigned int uint;
+
+#ifdef WITH_GLPK
+class RactIP
+{
+public:
+  RactIP(float th_hy, float th_ss, float alpha, bool in_pk,
+         bool use_contrafold, bool stacking_constraints, int n_th, const char* rip_file)
+    : ip_(NULL),
+      th_hy_(th_hy),
+      th_ss_(th_ss),
+      alpha_(alpha),
+      in_pk_(in_pk),
+      use_contrafold_(use_contrafold),
+      stacking_constraints_(stacking_constraints),
+      n_th_(n_th),
+      rip_file_(rip_file)
+  {
+    ip_ = glp_create_prob();
+    glp_set_obj_dir(ip_, GLP_MAX);
+  }
+
+  ~RactIP()
+  {
+    glp_delete_prob(ip_);
+  }
+
+  void solve(const std::string& s1, const std::string& s2,
+             std::string& r1, std::string& r2);
+
+private:
+  void contrafold(const std::string& seq, boost::multi_array<int, 2>& e);
+  void contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<int, 2>& e);
+  void rnafold(const std::string& seq, boost::multi_array<int, 2>& e);
+  void rnaduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<int, 2>& e);
+  void load_from_rip(const char* filename);
+
+private:
+  glp_prob *ip_;
+  
+  // options
+  float th_hy_;                // threshold for the hybridization probability
+  float th_ss_;                // threshold for the base-pairing probability
+  float alpha_;                // weight for the hybridization score
+  bool in_pk_;                 // allow internal pseudoknots or not
+  bool use_contrafold_;        // use CONTRAfold model or not
+  bool stacking_constraints_;
+  int n_th_;                   // the number of threads
+  const char* rip_file_;
+
+  boost::multi_array<int, 2> ex_;
+  boost::multi_array<int, 2> ey_;
+  boost::multi_array<int, 2> ez_;
+};
+
+void
+RactIP::
+contrafold(const std::string& seq, boost::multi_array<int, 2>& e) 
+{
+  SStruct ss("unknown", seq);
+  ParameterManager<float> pm;
+  InferenceEngine<float> en(false);
+  std::vector<float> w = GetDefaultComplementaryValues<float>();
+  std::vector<float> bp((seq.size()+1)*(seq.size()+2)/2, 0.0);
+  en.RegisterParameters(pm);
+  en.LoadValues(w);
+  en.LoadSequence(ss);
+  en.ComputeInside();
+  en.ComputeOutside();
+  en.ComputePosterior();
+  en.GetPosterior(th_ss_, bp);
+
+  for (uint j=1; j!=seq.size(); ++j)
+  {
+    for (uint i=j-1; i!=-1u; --i)
+    {
+      float p=bp[en.GetOffset(i+1)+(j+1)];
+      if (p>th_ss_)
+      {
+        e[i][j] = glp_add_cols(ip_, 1);
+        glp_set_col_bnds(ip_, e[i][j], GLP_DB, 0, 1);
+        glp_set_col_kind(ip_, e[i][j], GLP_BV);
+        glp_set_obj_coef(ip_, e[i][j], p);
+      }
+    }
+  }
+}    
+
+void
+RactIP::
+contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<int, 2>& e)
+{
+  SStruct ss1("unknown", seq1), ss2("unknown", seq2);
+  ParameterManager<float> pm;
+  DuplexEngine<float> en(false);
+  std::vector<float> w = GetDefaultComplementaryValues<float>();
+  std::vector<float> ip;
+  en.RegisterParameters(pm);
+  en.LoadValues(w);
+  en.LoadSequence(ss1, ss2);
+  en.ComputeInside();
+  en.ComputeOutside();
+  en.ComputePosterior();
+  en.GetPosterior(th_hy_, ip);
+  for (uint i=0; i!=seq1.size(); ++i)
+  {
+    for (uint j=0; j!=seq2.size(); ++j)
+    {
+      float p=ip[en.GetOffset(i+1)+(j+1)];
+      if (p>th_hy_)
+      {
+        e[i][j] = glp_add_cols(ip_, 1);
+        glp_set_col_bnds(ip_, e[i][j], GLP_DB, 0, 1);
+        glp_set_col_kind(ip_, e[i][j], GLP_BV);
+        glp_set_obj_coef(ip_, e[i][j], p*alpha_);
+      }
+    }
+  }
+}
+
+void
+RactIP::
+rnafold(const std::string& seq, boost::multi_array<int, 2>& e)
+{
+  Vienna::init_pf_fold(seq.size());
+  Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  for (uint i=0; i!=seq.size()-1; ++i)
+  {
+    for (uint j=i+1; j!=seq.size(); ++j)
+    {
+      float p=Vienna::pr[Vienna::iindx[i+1]-(j+1)];
+      if (p>th_ss_)
+      {
+        e[i][j] = glp_add_cols(ip_, 1);
+        glp_set_col_bnds(ip_, e[i][j], GLP_DB, 0, 1);
+        glp_set_col_kind(ip_, e[i][j], GLP_BV);
+        glp_set_obj_coef(ip_, e[i][j], p);
+      }
+    }
+  }
+  Vienna::free_pf_arrays();
+}
+
+void
+RactIP::
+rnaduplex(const std::string& s1, const std::string& s2, boost::multi_array<int, 2>& e)
+{
+  Vienna::pf_duplex(s1.c_str(), s2.c_str());
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    for (uint j=0; j!=s2.size(); ++j)
+    {
+      float p=Vienna::pr_duplex[i+1][j+1];
+      if (p>th_hy_)
+      {
+        e[i][j] = glp_add_cols(ip_, 1);
+        glp_set_col_bnds(ip_, e[i][j], GLP_DB, 0, 1);
+        glp_set_col_kind(ip_, e[i][j], GLP_BV);
+        glp_set_obj_coef(ip_, e[i][j], p*alpha_);
+      }
+    }
+  }
+  Vienna::free_pf_duplex();
+}
+
+void
+RactIP::
+load_from_rip(const char* filename)
+{
+  enum { NONE, TABLE_R, TABLE_S, TABLE_I };
+  uint st=NONE;
+  uint y_len=ey_.size();
+  std::ifstream is(filename);
+  std::string l;
+  while (std::getline(is, l))
+  {
+    if (strncmp(l.c_str(), "Table R:", 8)==0) st=TABLE_R;
+    else if (strncmp(l.c_str(), "Table S:", 8)==0) st=TABLE_S;
+    else if (strncmp(l.c_str(), "Table I:", 8)==0) st=TABLE_I;
+    else if (st!=NONE && l[0]>='0' && l[0]<='9')
+    {
+      int i,j;
+      double p;
+      std::istringstream s(l.c_str());
+      s >> i >> j >> p;
+      switch (st)
+      {
+        case TABLE_R:
+          if (p>th_ss_)
+          {
+            ex_[i-1][j-1] = glp_add_cols(ip_, 1);
+            glp_set_col_bnds(ip_, ex_[i-1][j-1], GLP_DB, 0, 1);
+            glp_set_col_kind(ip_, ex_[i-1][j-1], GLP_BV);
+            glp_set_obj_coef(ip_, ex_[i-1][j-1], p);
+          }
+          break;
+        case TABLE_S:
+          if (p>th_ss_)
+          {
+            ey_[y_len-j][y_len-i] = glp_add_cols(ip_, 1);
+            glp_set_col_bnds(ip_, ey_[y_len-j][y_len-1], GLP_DB, 0, 1);
+            glp_set_col_kind(ip_, ey_[y_len-j][y_len-1], GLP_BV);
+            glp_set_obj_coef(ip_, ey_[y_len-j][y_len-1], p);
+          }
+          break;
+        case TABLE_I:
+          if (p>th_hy_)
+          {
+            ez_[i-1][y_len-j] = glp_add_cols(ip_, 1);
+            glp_set_col_bnds(ip_, ez_[i-1][y_len-j], GLP_DB, 0, 1);
+            glp_set_col_kind(ip_, ez_[i-1][y_len-j], GLP_BV);
+            glp_set_obj_coef(ip_, ez_[i-1][y_len-j], p*alpha_);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    else st=NONE;
+  }
+}
+
+void
+RactIP::
+solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
+{
+  ex_.resize(boost::extents[s1.size()][s1.size()]);
+  std::fill(ex_.data(), ex_.data()+ex_.num_elements(), -1);
+  ey_.resize(boost::extents[s2.size()][s2.size()]);
+  std::fill(ey_.data(), ey_.data()+ey_.num_elements(), -1);
+  ez_.resize(boost::extents[s1.size()][s2.size()]);
+  std::fill(ez_.data(), ez_.data()+ez_.num_elements(), -1);
+
+  std::vector<int> ia;
+  std::vector<int> ja;
+  std::vector<double> ar;
+
+  if (rip_file_)
+  {
+    load_from_rip(rip_file_);
+  }
+  else
+  {
+    if (use_contrafold_)
+    {
+      contrafold(s1, ex_);
+      contrafold(s2, ey_);
+      //contraduplex(s1, s2, ez_);
+      rnaduplex(s1, s2, ez_);
+    }
+    else
+    {
+      Vienna::pf_scale = -1;
+      rnafold(s1, ex_);
+      rnafold(s2, ey_);
+      rnaduplex(s1, s2, ez_);
+    }
+  }
+
+  // constraint 1: each a_i is paired with at most one base
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    int row = glp_add_rows(ip_, 1);
+    glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
+    for (uint j=0; j!=s2.size(); ++j)
+    {
+      if (ez_[i][j]>=0)
+      {
+        ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+    for (uint j=0; j<i; ++j)
+    {
+      if (ex_[j][i]>=0)
+      {
+        ia.push_back(ex_[j][i]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+    for (uint j=i+1; j<s1.size(); ++j)
+    {
+      if (ex_[i][j]>=0)
+      {
+        ia.push_back(ex_[i][j]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+  }
+
+  // constraint 2: each b_i is paired with at moat one
+  for (uint i=0; i!=s2.size(); ++i)
+  {
+    int row = glp_add_rows(ip_, 1);
+    glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
+    for (uint j=0; j!=s1.size(); ++j)
+    {
+      if (ez_[j][i]>=0)
+      {
+        ia.push_back(ez_[j][i]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+    for (uint j=0; j<i; ++j)
+    {
+      if (ey_[j][i]>=0)
+      {
+        ia.push_back(ey_[j][i]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+    for (uint j=i+1; j<s2.size(); ++j)
+    {
+      if (ey_[i][j]>=0)
+      {
+        ia.push_back(ey_[i][j]); ja.push_back(row); ar.push_back(1);
+      }
+    }
+  }
+
+  // constraint 3: disallow external pseudoknots
+  for (uint i=0; i<s1.size(); ++i)
+    for (uint k=i+1; k<s1.size(); ++k)
+      for (uint j=0; j<s2.size(); ++j)
+        if (ez_[i][j]>=0)
+          for (uint l=j+1; l<s2.size(); ++l)
+            if (ez_[k][l]>=0)
+            {
+              int row = glp_add_rows(ip_, 1);
+              glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
+              ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(1);
+              ia.push_back(ez_[k][l]); ja.push_back(row); ar.push_back(1);
+            }
+
+  if (in_pk_)
+  {
+    // constraint 4: disallow internal pseudoknots in a
+    for (uint i=0; i<s1.size(); ++i)
+      for (uint k=i+1; k<s1.size(); ++k)
+        for (uint j=k+1; j<s1.size(); ++j)
+          if (ex_[i][j]>=0)
+            for (uint l=j+1; l<s1.size(); ++l)
+              if (ex_[k][l]>=0)
+              {
+                int row = glp_add_rows(ip_, 1);
+                glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
+                ia.push_back(ex_[i][j]); ja.push_back(row), ar.push_back(1);
+                ia.push_back(ex_[k][l]); ja.push_back(row), ar.push_back(1);
+              }
+
+    // constraint 5: disallow internal pseudoknots in b
+    for (uint i=0; i<s2.size(); ++i)
+      for (uint k=i+1; k<s2.size(); ++k)
+        for (uint j=k+1; j<s2.size(); ++j)
+          if (ey_[i][j]>=0)
+            for (uint l=j+1; l<s2.size(); ++l)
+              if (ey_[k][l]>=0)
+              {
+                int row = glp_add_rows(ip_, 1);
+                glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
+                ia.push_back(ey_[i][j]); ja.push_back(row), ar.push_back(1);
+                ia.push_back(ey_[k][l]); ja.push_back(row), ar.push_back(1);
+              }
+  }
+
+  if (stacking_constraints_)
+  {
+    // upstream of s1
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
+      for (uint j=0; j<i; ++j)
+      {
+        if (ex_[j][i]>=0)
+        {
+          ia.push_back(ex_[j][i]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=0; j<i-1; ++j)
+        {
+          if (ex_[j][i-1]>=0)
+          {
+            ia.push_back(ex_[j][i-1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s1.size())
+      {
+        for (uint j=0; j<i+1; ++j)
+        {
+          if (ex_[j][i+1]>=0)
+          {
+            ia.push_back(ex_[j][i+1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+
+    // downstream of s1
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
+      for (uint j=i+1; j<s1.size(); ++j)
+      {
+        if (ex_[i][j]>=0)
+        {
+          ia.push_back(ex_[i][j]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=i; j<s1.size(); ++j)
+        {
+          if (ex_[i-1][j]>=0)
+          {
+            ia.push_back(ex_[i-1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s1.size())
+      {
+        for (uint j=i+2; j<s1.size(); ++j)
+        {
+          if (ex_[i+1][j]>=0)
+          {
+            ia.push_back(ex_[i+1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+
+    // upstream of s2
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
+      for (uint j=0; j<i; ++j)
+      {
+        if (ey_[j][i]>=0)
+        {
+          ia.push_back(ey_[j][i]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=0; j<i-1; ++j)
+        {
+          if (ey_[j][i-1]>=0)
+          {
+            ia.push_back(ey_[j][i-1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s2.size())
+      {
+        for (uint j=0; j<i+1; ++j)
+        {
+          if (ey_[j][i+1]>=0)
+          {
+            ia.push_back(ey_[j][i+1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+
+    // downstream of s2
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
+      for (uint j=i+1; j<s2.size(); ++j)
+      {
+        if (ey_[i][j]>=0)
+        {
+          ia.push_back(ey_[i][j]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=i; j<s2.size(); ++j)
+        {
+          if (ey_[i-1][j]>=0)
+          {
+            ia.push_back(ey_[i-1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s2.size())
+      {
+        for (uint j=i+2; j<s2.size(); ++j)
+        {
+          if (ey_[i+1][j]>=0)
+          {
+            ia.push_back(ey_[i+1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+
+    // for s2
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, 1, GLP_LO, 0, 0);
+      for (uint j=0; j<s1.size(); ++j)
+      {
+        if (ez_[j][i]>=0)
+        {
+          ia.push_back(ez_[j][i]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=0; j<s1.size(); ++j)
+        {
+          if (ez_[j][i-1]>=0)
+          {
+            ia.push_back(ez_[j][i-1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s2.size())
+      {
+        for (uint j=0; j<s1.size(); ++j)
+        {
+          if (ez_[j][i+1])
+          {
+            ia.push_back(ez_[j][i+1]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+
+    // for s1
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      int row = glp_add_rows(ip_, 1);
+      glp_set_row_bnds(ip_, 1, GLP_LO, 0, 0);
+      for (uint j=0; j<s2.size(); ++j)
+      {
+        if (ez_[i][j]>=0)
+        {
+          ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(-1);
+        }
+      }
+      if (i>0)
+      {
+        for (uint j=0; j<s2.size(); ++j)
+        {
+          if (ez_[i-1][j]>=0)
+          {
+            ia.push_back(ez_[i-1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+      if (i+1<s1.size())
+      {
+        for (uint j=0; j<s2.size(); ++j)
+        {
+          if (ez_[i+1][j])
+          {
+            ia.push_back(ez_[i+1][j]); ja.push_back(row); ar.push_back(1);
+          }
+        }
+      }
+    }
+  }
+
+  // execute optimization
+  glp_load_matrix(ip_, ia.size(), &ia[0], &ja[0], &ar[0]);
+  glp_simplex(ip_, NULL);
+  glp_intopt(ip_, NULL);
+
+  // build the resultant structure
+  r1.resize(s1.size());
+  r2.resize(s2.size());
+  std::fill(r1.begin(), r1.end(), '.');
+  std::fill(r2.begin(), r2.end(), '.');
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    for (uint j=0; j!=s2.size(); ++j)
+    {
+      if (ez_[i][j]>=0 && glp_mip_col_val(ip_, ez_[i][j])>0.5)
+      {
+        r1[i]='['; r2[j]=']';
+      }
+    }
+  }
+  if (in_pk_)
+  {
+    for (uint i=0; i<s1.size(); ++i)
+    {
+      for (uint j=i+1; j<s1.size(); ++j)
+      {
+        if (ex_[i][j]>=0 && glp_mip_col_val(ip_, ex_[i][j])>0.5)
+        {
+          assert(r1[i]=='.'); assert(r1[j]=='.');
+          r1[i]='('; r1[j]=')';
+        }
+      }
+    }
+    for (uint i=0; i<s2.size(); ++i)
+    {
+      for (uint j=i+1; j<s2.size(); ++j)
+      {
+        if (ey_[i][j]>=0 && glp_mip_col_val(ip_, ey_[i][j])>0.5)
+        {
+          assert(r2[i]=='.'); assert(r2[j]=='.');
+          r2[i]='('; r2[j]=')';
+        }
+      }
+    }
+  }
+}
+#endif  // WITH_GLPK
 
 #ifdef WITH_CPLEX
 class RactIP

@@ -24,6 +24,15 @@ AC_C_INLINE
 # Checks for library functions.
 AC_CHECK_LIB([pthread], [pthread_create])
 
+# glpk
+AC_ARG_WITH([glpk], AS_HELP_STRING([--with-glpk], [support GNU linear programming kit]),
+  if test "$with_glpk" != "no"; then
+    CPPFLAGS="-DWITH_GLPK $CPPFLAGS"
+  fi		  
+)
+AC_CHECK_HEADERS([glpk.h])
+AC_CHECK_LIB([glpk], [glp_create_prob])
+
 # ILOG CPLEX
 AC_ARG_WITH([cplex], AS_HELP_STRING([--with-cplex], [support CPLEX optimizer]),
   if test "$with_cplex" != "no"; then
