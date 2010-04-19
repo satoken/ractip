@@ -286,9 +286,9 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   ez_.resize(boost::extents[s1.size()][s2.size()]);
   std::fill(ez_.data(), ez_.data()+ez_.num_elements(), -1);
 
-  std::vector<int> ia;
-  std::vector<int> ja;
-  std::vector<double> ar;
+  std::vector<int> ja(1);
+  std::vector<int> ia(1);
+  std::vector<double> ar(1);
 
   if (rip_file_)
   {
@@ -321,21 +321,21 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       if (ez_[i][j]>=0)
       {
-        ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ez_[i][j]); ia.push_back(row); ar.push_back(1);
       }
     }
     for (uint j=0; j<i; ++j)
     {
       if (ex_[j][i]>=0)
       {
-        ia.push_back(ex_[j][i]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ex_[j][i]); ia.push_back(row); ar.push_back(1);
       }
     }
     for (uint j=i+1; j<s1.size(); ++j)
     {
       if (ex_[i][j]>=0)
       {
-        ia.push_back(ex_[i][j]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ex_[i][j]); ia.push_back(row); ar.push_back(1);
       }
     }
   }
@@ -349,21 +349,21 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       if (ez_[j][i]>=0)
       {
-        ia.push_back(ez_[j][i]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ez_[j][i]); ia.push_back(row); ar.push_back(1);
       }
     }
     for (uint j=0; j<i; ++j)
     {
       if (ey_[j][i]>=0)
       {
-        ia.push_back(ey_[j][i]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ey_[j][i]); ia.push_back(row); ar.push_back(1);
       }
     }
     for (uint j=i+1; j<s2.size(); ++j)
     {
       if (ey_[i][j]>=0)
       {
-        ia.push_back(ey_[i][j]); ja.push_back(row); ar.push_back(1);
+        ja.push_back(ey_[i][j]); ia.push_back(row); ar.push_back(1);
       }
     }
   }
@@ -378,8 +378,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
             {
               int row = glp_add_rows(ip_, 1);
               glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
-              ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(1);
-              ia.push_back(ez_[k][l]); ja.push_back(row); ar.push_back(1);
+              ja.push_back(ez_[i][j]); ia.push_back(row); ar.push_back(1);
+              ja.push_back(ez_[k][l]); ia.push_back(row); ar.push_back(1);
             }
 
   if (in_pk_)
@@ -394,8 +394,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
               {
                 int row = glp_add_rows(ip_, 1);
                 glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
-                ia.push_back(ex_[i][j]); ja.push_back(row), ar.push_back(1);
-                ia.push_back(ex_[k][l]); ja.push_back(row), ar.push_back(1);
+                ja.push_back(ex_[i][j]); ia.push_back(row), ar.push_back(1);
+                ja.push_back(ex_[k][l]); ia.push_back(row), ar.push_back(1);
               }
 
     // constraint 5: disallow internal pseudoknots in b
@@ -408,8 +408,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
               {
                 int row = glp_add_rows(ip_, 1);
                 glp_set_row_bnds(ip_, row, GLP_UP, 0, 1);
-                ia.push_back(ey_[i][j]); ja.push_back(row), ar.push_back(1);
-                ia.push_back(ey_[k][l]); ja.push_back(row), ar.push_back(1);
+                ja.push_back(ey_[i][j]); ia.push_back(row), ar.push_back(1);
+                ja.push_back(ey_[k][l]); ia.push_back(row), ar.push_back(1);
               }
   }
 
@@ -424,7 +424,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         if (ex_[j][i]>=0)
         {
-          ia.push_back(ex_[j][i]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ex_[j][i]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -433,7 +433,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ex_[j][i-1]>=0)
           {
-            ia.push_back(ex_[j][i-1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ex_[j][i-1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -443,7 +443,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ex_[j][i+1]>=0)
           {
-            ia.push_back(ex_[j][i+1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ex_[j][i+1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -458,7 +458,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         if (ex_[i][j]>=0)
         {
-          ia.push_back(ex_[i][j]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ex_[i][j]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -467,7 +467,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ex_[i-1][j]>=0)
           {
-            ia.push_back(ex_[i-1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ex_[i-1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -477,7 +477,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ex_[i+1][j]>=0)
           {
-            ia.push_back(ex_[i+1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ex_[i+1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -492,7 +492,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         if (ey_[j][i]>=0)
         {
-          ia.push_back(ey_[j][i]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ey_[j][i]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -501,7 +501,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ey_[j][i-1]>=0)
           {
-            ia.push_back(ey_[j][i-1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ey_[j][i-1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -511,7 +511,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ey_[j][i+1]>=0)
           {
-            ia.push_back(ey_[j][i+1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ey_[j][i+1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -526,7 +526,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         if (ey_[i][j]>=0)
         {
-          ia.push_back(ey_[i][j]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ey_[i][j]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -535,7 +535,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ey_[i-1][j]>=0)
           {
-            ia.push_back(ey_[i-1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ey_[i-1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -545,7 +545,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ey_[i+1][j]>=0)
           {
-            ia.push_back(ey_[i+1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ey_[i+1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -555,12 +555,12 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     for (uint i=0; i<s2.size(); ++i)
     {
       int row = glp_add_rows(ip_, 1);
-      glp_set_row_bnds(ip_, 1, GLP_LO, 0, 0);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
       for (uint j=0; j<s1.size(); ++j)
       {
         if (ez_[j][i]>=0)
         {
-          ia.push_back(ez_[j][i]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ez_[j][i]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -569,7 +569,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ez_[j][i-1]>=0)
           {
-            ia.push_back(ez_[j][i-1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ez_[j][i-1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -577,9 +577,9 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         for (uint j=0; j<s1.size(); ++j)
         {
-          if (ez_[j][i+1])
+          if (ez_[j][i+1]>=0)
           {
-            ia.push_back(ez_[j][i+1]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ez_[j][i+1]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -589,12 +589,12 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     for (uint i=0; i<s1.size(); ++i)
     {
       int row = glp_add_rows(ip_, 1);
-      glp_set_row_bnds(ip_, 1, GLP_LO, 0, 0);
+      glp_set_row_bnds(ip_, row, GLP_LO, 0, 0);
       for (uint j=0; j<s2.size(); ++j)
       {
         if (ez_[i][j]>=0)
         {
-          ia.push_back(ez_[i][j]); ja.push_back(row); ar.push_back(-1);
+          ja.push_back(ez_[i][j]); ia.push_back(row); ar.push_back(-1);
         }
       }
       if (i>0)
@@ -603,7 +603,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           if (ez_[i-1][j]>=0)
           {
-            ia.push_back(ez_[i-1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ez_[i-1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -611,9 +611,9 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         for (uint j=0; j<s2.size(); ++j)
         {
-          if (ez_[i+1][j])
+          if (ez_[i+1][j]>=0)
           {
-            ia.push_back(ez_[i+1][j]); ja.push_back(row); ar.push_back(1);
+            ja.push_back(ez_[i+1][j]); ia.push_back(row); ar.push_back(1);
           }
         }
       }
@@ -621,7 +621,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
 
   // execute optimization
-  glp_load_matrix(ip_, ia.size(), &ia[0], &ja[0], &ar[0]);
+  glp_load_matrix(ip_, ja.size()-1, &ia[0], &ja[0], &ar[0]);
   glp_simplex(ip_, NULL);
   glp_intopt(ip_, NULL);
 

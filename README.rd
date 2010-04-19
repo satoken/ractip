@@ -2,16 +2,28 @@
 
 == Requirements
 
-* Gurobi Optimizer (>=2.0)
-  ((<URL:http://www.gurobi.com/))
-* Boost C++ Library (>=1.42.0)
-  ((<URL:http://www.boost.org/>))
-* Vienna RNA package (>= 1.8)
-  ((<URL:http://www.tbi.univie.ac.at/~ivo/RNA/>))
+* Boost C++ Library (>=1.42.0) ((<URL:http://www.boost.org/>))
+* Vienna RNA package (>= 1.8) ((<URL:http://www.tbi.univie.ac.at/~ivo/RNA/>))
+* GNU Linear Programming Kit (>=4.41) ((<URL:http://www.gnu.org/software/glpk/>))
+  or Gurobi Optimizer (>=2.0) ((<URL:http://www.gurobi.com/))
+  or ILOG CPLEX (>=12.0) ((<URL:http://http://www-01.ibm.com/software/integration/optimization/cplex/>))
 
 == Install
 
- ./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi=/path/to/gurobi
+For GLPK,
+ ./configure --with-vienna-rna=/path/to/vienna-rna --with-glpk
+
+For Gurobi, 
+ ./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi
+
+For CPLEX,
+ ./configure --with-vienna-rna=/path/to/vienna-rna --with-cplex
+
+You may have to specify the include path and the library path by CPPFLAGS and LDFLAGS like
+ env CPPFLAGS='-I/path/to/gurobi/include' LDFLAGS='-L/path/to/gurobi/lib' \
+ ./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi
+
+Then,
  make
  make install
 
