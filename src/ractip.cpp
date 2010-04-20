@@ -1,5 +1,5 @@
 /*
- * $Id:$
+ * $Id$
  * 
  * Copyright (C) 2010 Kengo Sato
  *
@@ -1071,6 +1071,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
 
   // execute optimization
   IloCplex cplex(model_);
+  cplex.setParam(IloCplex::Threads, n_th_);
   cplex.solve();
 
   // build the resultant structure
@@ -1574,7 +1575,10 @@ usage(const char* progname)
             << " -u th_hy: threshold of hybridazation probabilities (default: 0.2)" << std::endl
             << " -m:       use McCaskill model (default: CONTRAfold model)" << std::endl
             << " -i:       allow isolated base-pairs" << std::endl
-            << " -n n_th:  specify the number of threads (default: 1)" << std::endl;
+#ifndef WITH_GLPK
+            << " -n n_th:  specify the number of threads (default: 1)" << std::endl
+#endif
+    ;
 }
 
 int

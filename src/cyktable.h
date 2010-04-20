@@ -1,5 +1,5 @@
 /*
- * $Id: cyktable.h 91 2010-01-03 16:46:51Z sato-kengo $
+ * $Id$
  *
  * Copyright (C) 2007-2010 Kengo Sato
  *
