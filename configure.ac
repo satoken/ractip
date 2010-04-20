@@ -31,6 +31,10 @@ AC_ARG_WITH([glpk], AS_HELP_STRING([--with-glpk], [support GNU linear programmin
   fi		  
 )
 AC_CHECK_HEADERS([glpk.h])
+AC_CHECK_LIB([z], [main])
+AC_CHECK_LIB([gmp], [main])
+AC_CHECK_LIB([dl], [main])
+AC_CHECK_LIB([ltdl], [main])
 AC_CHECK_LIB([glpk], [glp_create_prob])
 
 # ILOG CPLEX
