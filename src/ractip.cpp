@@ -567,6 +567,7 @@ usage(const char* progname)
             << " -u th_hy: threshold of hybridazation probabilities (default: 0.2)" << std::endl
             << " -m:       use McCaskill model (default: CONTRAfold model)" << std::endl
             << " -i:       allow isolated base-pairs" << std::endl
+            << " -e:       calculate the free energy of the predicted joint structure" << std::endl
 #ifndef WITH_GLPK
             << " -n n_th:  specify the number of threads (default: 1)" << std::endl
 #endif
