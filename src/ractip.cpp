@@ -585,9 +585,10 @@ main(int argc, char* argv[])
   bool in_pk=true;
   bool isolated_bp=false;
   bool use_contrafold=true;
+  bool show_energy=false;
   int n_th=1;
   const char* rip_file=NULL;
-  while ((ch=getopt(argc, argv, "a:t:u:pmisn:r:h"))!=-1)
+  while ((ch=getopt(argc, argv, "a:t:u:pmisen:r:h"))!=-1)
   {
     switch (ch)
     {
@@ -608,6 +609,9 @@ main(int argc, char* argv[])
         break;
       case 'i':
         isolated_bp=true;
+        break;
+      case 'e':
+        show_energy=true;
         break;
       case 'n':
         n_th=atoi(optarg);
@@ -656,6 +660,46 @@ main(int argc, char* argv[])
             << fa1.seq() << std::endl << r1 << std::endl
             << ">" << fa2.name() << std::endl
             << fa2.seq() << std::endl << r2 << std::endl;
+
+  // show energy of the joint structure
+  if (show_energy)
+  {
+    float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
+    float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
+
+    std::string ss(fa1.seq()+"NNN"+fa2.seq());
+
+    std::string r1_temp(r1);
+    for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+    {
+      switch (*x)
+      {
+        case '(': case ')': *x='.'; break;
+        case '[': *x='('; break;
+        default: break;
+      }
+    }
+
+    std::string r2_temp(r2);
+    for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
+    {
+      switch (*x)
+      {
+        case '(': case ')': *x='.'; break;
+        case ']': *x=')'; break;
+        default: break;
+      }
+    }
+
+    std::string rr(r1_temp+"..."+r2_temp);
+    //std::cout << ss << std::endl << rr << std::endl;
+    float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+
+    std::cout << "(E: S1=" << e1 << ", "
+              << "S2=" << e2 << ", "
+              << "H=" << e3 << ", "
+              << "JS=" << e1+e2+e3 << ")" << std::endl;
+  }
 
   return 0;
 }
