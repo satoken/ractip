@@ -42,6 +42,7 @@ extern "C" {
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/part_func.h>
 #include "pf_duplex.h"
+  extern void read_parameter_file(const char fname[]);
 };
 };
 
@@ -568,6 +569,7 @@ usage(const char* progname)
             << " -m:       use McCaskill model (default: CONTRAfold model)" << std::endl
             << " -i:       allow isolated base-pairs" << std::endl
             << " -e:       calculate the free energy of the predicted joint structure" << std::endl
+            << " -P param: read the energy parameter file for the Vienna RNA package" << std::endl
 #ifndef WITH_GLPK
             << " -n n_th:  specify the number of threads (default: 1)" << std::endl
 #endif
@@ -589,7 +591,8 @@ main(int argc, char* argv[])
   bool show_energy=false;
   int n_th=1;
   const char* rip_file=NULL;
-  while ((ch=getopt(argc, argv, "a:t:u:pmisen:r:h"))!=-1)
+  const char* param=NULL;
+  while ((ch=getopt(argc, argv, "a:t:u:pmisen:r:P:h"))!=-1)
   {
     switch (ch)
     {
@@ -619,6 +622,9 @@ main(int argc, char* argv[])
         break;
       case 'r':
         rip_file=optarg;
+        break;
+      case 'P':
+        param=optarg;
         break;
       case 'h': case '?': default:
         usage(progname);
@@ -650,6 +656,10 @@ main(int argc, char* argv[])
   }
   else { usage(progname); return 1;}
 
+  // set the energy parameters
+  if (param)
+    Vienna::read_parameter_file(param);
+  
   // predict the interation
   std::string r1, r2;
   RactIP ractip(th_hy, th_bp, alpha, in_pk,
