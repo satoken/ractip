@@ -46,6 +46,10 @@ extern "C" {
 };
 };
 
+extern "C" {
+#include "new_param.h"
+};
+
 typedef unsigned int uint;
 
 class RactIP
@@ -657,6 +661,7 @@ main(int argc, char* argv[])
   else { usage(progname); return 1;}
 
   // set the energy parameters
+  copy_new_parameters();
   if (param)
     Vienna::read_parameter_file(param);
   
