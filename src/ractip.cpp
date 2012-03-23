@@ -639,82 +639,95 @@ main(int argc, char* argv[])
   argc -= optind;
   argv += optind;
 
-  // read sequences
-  Fasta fa1, fa2;
-  if (argc==2)
+  try
   {
-    std::list<Fasta> l1, l2;
-    Fasta::load(l1, argv[0]);
-    Fasta::load(l2, argv[1]);
-    fa1=l1.front();
-    fa2=l2.front();
-  }
-  else if (argc==1)
-  {
-    std::list<Fasta> l1;
-    Fasta::load(l1, argv[0]);
-    if (l1.size()<2) { usage(progname); return 1; }
-    std::list<Fasta>::const_iterator x=l1.begin();
-    fa1=*(x++);
-    fa2=*(x++);
-  }
-  else { usage(progname); return 1;}
+    // read sequences
+    Fasta fa1, fa2;
+    if (argc==2)
+    {
+      std::list<Fasta> l1, l2;
+      if (Fasta::load(l1, argv[0])==0)
+        throw (std::string(argv[0])+": Format error").c_str();
+      if (Fasta::load(l2, argv[1])==0)
+        throw (std::string(argv[1])+": Format error").c_str();
+      fa1=l1.front();
+      fa2=l2.front();
+    }
+    else if (argc==1)
+    {
+      std::list<Fasta> l1;
+      if (Fasta::load(l1, argv[0])<2)
+        throw (std::string(argv[0])+": Format error").c_str();
+      std::list<Fasta>::const_iterator x=l1.begin();
+      fa1=*(x++);
+      fa2=*(x++);
+    }
+    else { usage(progname); return 1;}
 
-  // set the energy parameters
-  copy_new_parameters();
-  if (param)
-    Vienna::read_parameter_file(param);
+    // set the energy parameters
+    copy_new_parameters();
+    if (param)
+      Vienna::read_parameter_file(param);
   
-  // predict the interation
-  std::string r1, r2;
-  RactIP ractip(th_hy, th_bp, alpha, in_pk,
-                use_contrafold, !isolated_bp, n_th, rip_file);
-  ractip.solve(fa1.seq(), fa2.seq(), r1, r2);
+    // predict the interation
+    std::string r1, r2;
+    RactIP ractip(th_hy, th_bp, alpha, in_pk,
+                  use_contrafold, !isolated_bp, n_th, rip_file);
+    ractip.solve(fa1.seq(), fa2.seq(), r1, r2);
 
-  // display the result
-  std::cout << ">" << fa1.name() << std::endl
-            << fa1.seq() << std::endl << r1 << std::endl
-            << ">" << fa2.name() << std::endl
-            << fa2.seq() << std::endl << r2 << std::endl;
+    // display the result
+    std::cout << ">" << fa1.name() << std::endl
+              << fa1.seq() << std::endl << r1 << std::endl
+              << ">" << fa2.name() << std::endl
+              << fa2.seq() << std::endl << r2 << std::endl;
 
-  // show energy of the joint structure
-  if (show_energy)
+    // show energy of the joint structure
+    if (show_energy)
+    {
+      float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
+      float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
+
+      std::string ss(fa1.seq()+"NNN"+fa2.seq());
+
+      std::string r1_temp(r1);
+      for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+      {
+        switch (*x)
+        {
+          case '(': case ')': *x='.'; break;
+          case '[': *x='('; break;
+          default: break;
+        }
+      }
+
+      std::string r2_temp(r2);
+      for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
+      {
+        switch (*x)
+        {
+          case '(': case ')': *x='.'; break;
+          case ']': *x=')'; break;
+          default: break;
+        }
+      }
+
+      std::string rr(r1_temp+"..."+r2_temp);
+      //std::cout << ss << std::endl << rr << std::endl;
+      float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+
+      std::cout << "(E: S1=" << e1 << ", "
+                << "S2=" << e2 << ", "
+                << "H=" << e3 << ", "
+                << "JS=" << e1+e2+e3 << ")" << std::endl;
+    }
+  }
+  catch (const char* msg)
   {
-    float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
-    float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
-
-    std::string ss(fa1.seq()+"NNN"+fa2.seq());
-
-    std::string r1_temp(r1);
-    for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
-    {
-      switch (*x)
-      {
-        case '(': case ')': *x='.'; break;
-        case '[': *x='('; break;
-        default: break;
-      }
-    }
-
-    std::string r2_temp(r2);
-    for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
-    {
-      switch (*x)
-      {
-        case '(': case ')': *x='.'; break;
-        case ']': *x=')'; break;
-        default: break;
-      }
-    }
-
-    std::string rr(r1_temp+"..."+r2_temp);
-    //std::cout << ss << std::endl << rr << std::endl;
-    float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
-
-    std::cout << "(E: S1=" << e1 << ", "
-              << "S2=" << e2 << ", "
-              << "H=" << e3 << ", "
-              << "JS=" << e1+e2+e3 << ")" << std::endl;
+    std::cout << msg << std::endl;
+  }
+  catch (std::logic_error err)
+  {
+    std::cout << err.what() << std::endl;
   }
 
   return 0;
