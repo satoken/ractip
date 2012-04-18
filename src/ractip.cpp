@@ -19,7 +19,9 @@
  * along with RactIP.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
@@ -47,7 +49,7 @@ extern "C" {
 };
 
 extern "C" {
-#include "new_param.h"
+#include "boltzmann_param.h"
 };
 
 typedef unsigned int uint;
@@ -156,7 +158,9 @@ rnafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset
 #else
   Vienna::pf_scale = -1;
 #endif
+#ifndef HAVE_VIENNA20
   Vienna::init_pf_fold(L);
+#endif
   Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
   for (uint i=0; i!=L-1; ++i)
     for (uint j=i+1; j!=L; ++j)
@@ -665,7 +669,7 @@ main(int argc, char* argv[])
     else { usage(progname); return 1;}
 
     // set the energy parameters
-    copy_new_parameters();
+    copy_boltzmann_parameters();
     if (param)
       Vienna::read_parameter_file(param);
   
@@ -684,8 +688,14 @@ main(int argc, char* argv[])
     // show energy of the joint structure
     if (show_energy)
     {
+#ifdef HAVE_VIENNA20
+      float e1=Vienna::energy_of_structure(fa1.seq().c_str(), r1.c_str(), -1);
+      float e2=Vienna::energy_of_structure(fa2.seq().c_str(), r2.c_str(), -1);
+#else
+      Vienna::eos_debug = -1;
       float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
       float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
+#endif
 
       std::string ss(fa1.seq()+"NNN"+fa2.seq());
 
@@ -713,7 +723,12 @@ main(int argc, char* argv[])
 
       std::string rr(r1_temp+"..."+r2_temp);
       //std::cout << ss << std::endl << rr << std::endl;
+#ifdef HAVE_VIENNA20
+      float e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
+#else
+      Vienna::eos_debug = -1;
       float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+#endif
 
       std::cout << "(E: S1=" << e1 << ", "
                 << "S2=" << e2 << ", "

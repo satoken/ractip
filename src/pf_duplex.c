@@ -19,12 +19,21 @@
  * along with RactIP.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
-/*#include <ViennaRNA/utils.h>*/
+#ifdef HAVE_VIENNA20
+#include <ViennaRNA/utils.h>
+#else
+void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
+void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
+#endif
 #include <ViennaRNA/energy_par.h>
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/fold.h>
@@ -32,8 +41,6 @@
 #include <ViennaRNA/params.h>
 #include "pf_duplex.h"
 
-void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
-void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
 
 #define PUBLIC
 #define PRIVATE static
