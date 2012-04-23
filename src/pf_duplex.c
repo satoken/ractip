@@ -39,8 +39,10 @@ void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
 #include <ViennaRNA/fold.h>
 #include <ViennaRNA/pair_mat.h>
 #include <ViennaRNA/params.h>
+#ifdef HAVE_VIENNA20
+#include <ViennaRNA/loop_energies.h>
+#endif
 #include "pf_duplex.h"
-
 
 #define PUBLIC
 #define PRIVATE static
@@ -59,8 +61,10 @@ PUBLIC double **pr_duplex;      /* energy array, given that i-j pair */
 PUBLIC double **pr_duplex2;
 PRIVATE short  *S1, *SS1, *S2, *SS2;
 PRIVATE int   n1,n2;    /* sequence lengths */
+#ifndef HAVE_VIENNA20
 extern  int  LoopEnergy(int n1, int n2, int type, int type_2,
                         int si1, int sj1, int sp1, int sq1);
+#endif
 PRIVATE double pf_duplex_fw();
 PRIVATE double pf_duplex_bk();
 
@@ -105,8 +109,13 @@ pf_duplex(const char *s1, const char *s2)
       if (i>1 && j<n2) {
         type2 = pair[S1[i-1]][S2[j+1]];
         if (type2) {
+#ifdef HAVE_VIENNA20
+          E = E_IntLoop(0, 0, type2, rtype[type],
+                        SS1[i], SS2[j], SS1[i-1], SS2[j+1], P);
+#else
 	  E = LoopEnergy(0, 0, type2, rtype[type],
                          SS1[i], SS2[j], SS1[i-1], SS2[j+1]);
+#endif
           pr_duplex2[i][j] = exp(fw[i-1][j+1]+bk[i][j]-E*10./kT-Esum);
         }        
       }
@@ -160,8 +169,13 @@ pf_duplex_fw()
 	  if (i-k+l-j-2>MAXLOOP) break;
 	  type2 = pair[S1[k]][S2[l]];
 	  if (!type2) continue;
+#ifdef HAVE_VIENNA20
+	  E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
+                        SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
+#else
 	  E = LoopEnergy(i-k-1, l-j-1, type2, rtype[type],
 			    SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1]);
+#endif
 	  fw[i][j] = LogAdd(fw[i][j], fw[k][l]-E*10./kT);
 	}
       }
@@ -206,8 +220,13 @@ pf_duplex_bk()
 	  if (i-k+l-j-2>MAXLOOP) break;
 	  type2 = pair[S1[k]][S2[l]];
 	  if (!type2) continue;
+#ifdef HAVE_VIENNA20
+	  E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
+                        SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
+#else
 	  E = LoopEnergy(i-k-1, l-j-1, type2, rtype[type],
 			    SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1]);
+#endif
           bk[k][l] = LogAdd(bk[k][l], bk[i][j]-E*10./kT);
 	}
       }
