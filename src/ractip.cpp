@@ -22,6 +22,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include "cmdline.h"
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
@@ -58,23 +59,28 @@ typedef unsigned int uint;
 class RactIP
 {
 public:
-  RactIP(float th_hy, float th_ss, float alpha, bool in_pk,
-         bool use_contrafold, bool stacking_constraints, int n_th, const char* rip_file)
-    : th_hy_(th_hy),
-      th_ss_(th_ss),
-      alpha_(alpha),
-      in_pk_(in_pk),
-      use_contrafold_(use_contrafold),
-      stacking_constraints_(stacking_constraints),
-      n_th_(n_th),
-      rip_file_(rip_file)
+  RactIP()
+    : th_hy_(0.2),
+      th_ss_(0.5),
+      alpha_(0.5),
+      in_pk_(true),
+      use_contrafold_(true),
+      stacking_constraints_(true),
+      show_energy_(false),
+      n_th_(1),
+      rip_file_(),
+      param_file_(),
+      fa1_(),
+      fa2_()
   {
   }
-
+  
   ~RactIP()
   {
   }
 
+  RactIP& parse_options(int& argc, char**& argv);
+  int run();
   void solve(const std::string& s1, const std::string& s2,
              std::string& r1, std::string& r2);
 
@@ -97,8 +103,12 @@ private:
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
   bool stacking_constraints_;
+  bool show_energy_;
   int n_th_;                   // the number of threads
-  const char* rip_file_;
+  std::string rip_file_;
+  std::string param_file_;
+  std::string fa1_;
+  std::string fa2_;
 };
 
 void
@@ -257,9 +267,9 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   boost::multi_array<float, 2> hp;
 
   // calculate posterior probability matrices
-  if (rip_file_)
+  if (!rip_file_.empty())
   {
-    load_from_rip(rip_file_, s1, s2, bp1, offset1, bp2, offset2, hp);
+    load_from_rip(rip_file_.c_str(), s1, s2, bp1, offset1, bp2, offset2, hp);
   }
   else if (use_contrafold_)
   {
@@ -575,176 +585,141 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
 }
 
-void
-usage(const char* progname)
+RactIP&
+RactIP::
+parse_options(int& argc, char**& argv)
 {
-  std::cout << progname << ": [options] fasta1 fasta2" << std::endl
-            << " -h:       show this message" << std::endl
-            << " -p:       do not use the constraints for interenal pseudoknots" << std::endl
-            << " -a alpha: weight for hybridation probabilities (default: 0.5)" << std::endl
-            << " -t th_bp: threshold of base-pairing probabilities (default: 0.5)" << std::endl
-            << " -u th_hy: threshold of hybridazation probabilities (default: 0.2)" << std::endl
-            << " -m:       use McCaskill model (default: CONTRAfold model)" << std::endl
-            << " -i:       allow isolated base-pairs" << std::endl
-            << " -e:       calculate the free energy of the predicted joint structure" << std::endl
-            << " -P param: read the energy parameter file for the Vienna RNA package" << std::endl
-#ifndef WITH_GLPK
-            << " -n n_th:  specify the number of threads (default: 1)" << std::endl
+  gengetopt_args_info args_info;
+  if (cmdline_parser(argc, argv, &args_info)!=0) exit(1);
+
+  alpha_ = args_info.alpha_arg;
+  th_ss_ = args_info.fold_th_arg;
+  th_hy_ = args_info.hybridize_th_arg;
+  in_pk_ = args_info.no_pk_flag==0;
+  use_contrafold_ = args_info.mccaskill_flag==0;
+  stacking_constraints_ = args_info.allow_isolated_flag==0;
+  n_th_ = 1; // args_info.n_th_arg;
+  if (args_info.rip_given) rip_file_ = args_info.rip_arg;
+  show_energy_ = args_info.show_energy_flag==1;
+  if (args_info.param_file_given) param_file_ = args_info.param_file_arg;
+
+  if (args_info.inputs_num==0)
+  {
+    cmdline_parser_print_help();
+    cmdline_parser_free(&args_info);
+    exit(1);
+  }
+  if (args_info.inputs_num>=1)
+    fa1_ = args_info.inputs[0];
+  if (args_info.inputs_num>=2)
+    fa2_ = args_info.inputs[1];
+
+  cmdline_parser_free(&args_info);
+  return *this;
+}
+
+int
+RactIP::
+run()
+{
+  // set the energy parameters
+  copy_boltzmann_parameters();
+  if (!param_file_.empty())
+    Vienna::read_parameter_file(param_file_.c_str());
+  
+  // read sequences
+  Fasta fa1, fa2;
+  if (!fa1_.empty() && !fa2_.empty())
+  {
+    std::list<Fasta> l1, l2;
+    if (Fasta::load(l1, fa1_.c_str())==0)
+      throw (fa1_+": Format error").c_str();
+    if (Fasta::load(l2, fa2_.c_str())==0)
+      throw (fa2_+": Format error").c_str();
+    fa1=l1.front();
+    fa2=l2.front();
+  }
+  else if (!fa1_.empty())
+  {
+    std::list<Fasta> l1;
+    if (Fasta::load(l1, fa1_.c_str())<2)
+      throw (fa1_+": Format error").c_str();
+    std::list<Fasta>::const_iterator x=l1.begin();
+    fa1=*(x++);
+    fa2=*(x++);
+  }
+  else { throw "unreachable"; }
+
+  // predict the interation
+  std::string r1, r2;
+  solve(fa1.seq(), fa2.seq(), r1, r2);
+
+  // display the result
+  std::cout << ">" << fa1.name() << std::endl
+            << fa1.seq() << std::endl << r1 << std::endl
+            << ">" << fa2.name() << std::endl
+            << fa2.seq() << std::endl << r2 << std::endl;
+
+  // show energy of the joint structure
+  if (show_energy_)
+  {
+#ifdef HAVE_VIENNA20
+    float e1=Vienna::energy_of_structure(fa1.seq().c_str(), r1.c_str(), -1);
+    float e2=Vienna::energy_of_structure(fa2.seq().c_str(), r2.c_str(), -1);
+#else
+    Vienna::eos_debug = -1;
+    float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
+    float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
 #endif
-    ;
+    std::string ss(fa1.seq()+"NNN"+fa2.seq());
+
+    std::string r1_temp(r1);
+    for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+    {
+      switch (*x)
+      {
+        case '(': case ')': *x='.'; break;
+        case '[': *x='('; break;
+        default: break;
+      }
+    }
+
+    std::string r2_temp(r2);
+    for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
+    {
+      switch (*x)
+      {
+        case '(': case ')': *x='.'; break;
+        case ']': *x=')'; break;
+        default: break;
+      }
+    }
+
+    std::string rr(r1_temp+"..."+r2_temp);
+    //std::cout << ss << std::endl << rr << std::endl;
+#ifdef HAVE_VIENNA20
+    float e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
+#else
+    Vienna::eos_debug = -1;
+    float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+#endif
+
+    std::cout << "(E: S1=" << e1 << ", "
+              << "S2=" << e2 << ", "
+              << "H=" << e3 << ", "
+              << "JS=" << e1+e2+e3 << ")" << std::endl;
+  }
+
+  return 0;
 }
 
 int
 main(int argc, char* argv[])
 {
-  char* progname=argv[0];
-  // parse options
-  char ch;
-  float alpha=0.5;
-  float th_bp=0.5;
-  float th_hy=0.2;
-  bool in_pk=true;
-  bool isolated_bp=false;
-  bool use_contrafold=true;
-  bool show_energy=false;
-  int n_th=1;
-  const char* rip_file=NULL;
-  const char* param=NULL;
-  while ((ch=getopt(argc, argv, "a:t:u:pmisen:r:P:h"))!=-1)
-  {
-    switch (ch)
-    {
-      case 'm':
-        use_contrafold=false;
-        break;
-      case 'a':
-        alpha=atof(optarg);
-        break;
-      case 't':
-        th_bp=atof(optarg);
-        break;
-      case 'u':
-        th_hy=atof(optarg);
-        break;
-      case 'p':
-        in_pk=false;
-        break;
-      case 'i':
-        isolated_bp=true;
-        break;
-      case 'e':
-        show_energy=true;
-        break;
-      case 'n':
-        n_th=atoi(optarg);
-        break;
-      case 'r':
-        rip_file=optarg;
-        break;
-      case 'P':
-        param=optarg;
-        break;
-      case 'h': case '?': default:
-        usage(progname);
-        return 1;
-        break;
-    }
-  }
-  argc -= optind;
-  argv += optind;
-
   try
   {
-    // read sequences
-    Fasta fa1, fa2;
-    if (argc==2)
-    {
-      std::list<Fasta> l1, l2;
-      if (Fasta::load(l1, argv[0])==0)
-        throw (std::string(argv[0])+": Format error").c_str();
-      if (Fasta::load(l2, argv[1])==0)
-        throw (std::string(argv[1])+": Format error").c_str();
-      fa1=l1.front();
-      fa2=l2.front();
-    }
-    else if (argc==1)
-    {
-      std::list<Fasta> l1;
-      if (Fasta::load(l1, argv[0])<2)
-        throw (std::string(argv[0])+": Format error").c_str();
-      std::list<Fasta>::const_iterator x=l1.begin();
-      fa1=*(x++);
-      fa2=*(x++);
-    }
-    else { usage(progname); return 1;}
-
-    // set the energy parameters
-    copy_boltzmann_parameters();
-    if (param)
-      Vienna::read_parameter_file(param);
-  
-    // predict the interation
-    std::string r1, r2;
-    RactIP ractip(th_hy, th_bp, alpha, in_pk,
-                  use_contrafold, !isolated_bp, n_th, rip_file);
-    ractip.solve(fa1.seq(), fa2.seq(), r1, r2);
-
-    // display the result
-    std::cout << ">" << fa1.name() << std::endl
-              << fa1.seq() << std::endl << r1 << std::endl
-              << ">" << fa2.name() << std::endl
-              << fa2.seq() << std::endl << r2 << std::endl;
-
-    // show energy of the joint structure
-    if (show_energy)
-    {
-#ifdef HAVE_VIENNA20
-      float e1=Vienna::energy_of_structure(fa1.seq().c_str(), r1.c_str(), -1);
-      float e2=Vienna::energy_of_structure(fa2.seq().c_str(), r2.c_str(), -1);
-#else
-      Vienna::eos_debug = -1;
-      float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
-      float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
-#endif
-
-      std::string ss(fa1.seq()+"NNN"+fa2.seq());
-
-      std::string r1_temp(r1);
-      for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
-      {
-        switch (*x)
-        {
-          case '(': case ')': *x='.'; break;
-          case '[': *x='('; break;
-          default: break;
-        }
-      }
-
-      std::string r2_temp(r2);
-      for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
-      {
-        switch (*x)
-        {
-          case '(': case ')': *x='.'; break;
-          case ']': *x=')'; break;
-          default: break;
-        }
-      }
-
-      std::string rr(r1_temp+"..."+r2_temp);
-      //std::cout << ss << std::endl << rr << std::endl;
-#ifdef HAVE_VIENNA20
-      float e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
-#else
-      Vienna::eos_debug = -1;
-      float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
-#endif
-
-      std::cout << "(E: S1=" << e1 << ", "
-                << "S2=" << e2 << ", "
-                << "H=" << e3 << ", "
-                << "JS=" << e1+e2+e3 << ")" << std::endl;
-    }
+    RactIP ractip;
+    return ractip.parse_options(argc, argv).run();
   }
   catch (const char* msg)
   {
@@ -754,6 +729,5 @@ main(int argc, char* argv[])
   {
     std::cout << err.what() << std::endl;
   }
-
-  return 0;
+  return 1;
 }
