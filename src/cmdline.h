@@ -52,6 +52,15 @@ struct gengetopt_args_info
   float hybridize_th_arg;	/**< @brief Threshold for hybridazation probabilities (default='0.2').  */
   char * hybridize_th_orig;	/**< @brief Threshold for hybridazation probabilities original value given at command line.  */
   const char *hybridize_th_help; /**< @brief Threshold for hybridazation probabilities help description.  */
+  float acc_th_arg;	/**< @brief Threshold for accessible probabilities (default='0.0').  */
+  char * acc_th_orig;	/**< @brief Threshold for accessible probabilities original value given at command line.  */
+  const char *acc_th_help; /**< @brief Threshold for accessible probabilities help description.  */
+  int max_w_arg;	/**< @brief Maximum length of accessible regions (default='0').  */
+  char * max_w_orig;	/**< @brief Maximum length of accessible regions original value given at command line.  */
+  const char *max_w_help; /**< @brief Maximum length of accessible regions help description.  */
+  int min_w_arg;	/**< @brief Minimum length of accessible regions (default='0').  */
+  char * min_w_orig;	/**< @brief Minimum length of accessible regions original value given at command line.  */
+  const char *min_w_help; /**< @brief Minimum length of accessible regions help description.  */
   int mccaskill_flag;	/**< @brief Use McCaskill model for folding (default=off).  */
   const char *mccaskill_help; /**< @brief Use McCaskill model for folding help description.  */
   int allow_isolated_flag;	/**< @brief Allow isolated base-pairs (default=off).  */
@@ -72,6 +81,9 @@ struct gengetopt_args_info
   unsigned int alpha_given ;	/**< @brief Whether alpha was given.  */
   unsigned int fold_th_given ;	/**< @brief Whether fold-th was given.  */
   unsigned int hybridize_th_given ;	/**< @brief Whether hybridize-th was given.  */
+  unsigned int acc_th_given ;	/**< @brief Whether acc-th was given.  */
+  unsigned int max_w_given ;	/**< @brief Whether max-w was given.  */
+  unsigned int min_w_given ;	/**< @brief Whether min-w was given.  */
   unsigned int mccaskill_given ;	/**< @brief Whether mccaskill was given.  */
   unsigned int allow_isolated_given ;	/**< @brief Whether allow-isolated was given.  */
   unsigned int show_energy_given ;	/**< @brief Whether show-energy was given.  */

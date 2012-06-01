@@ -8,10 +8,16 @@ option "fold-th"	 t "Threshold for base-pairing probabilities"
 			   float default="0.5" optional
 option "hybridize-th"	 u "Threshold for hybridazation probabilities"
 			   float default="0.2" optional
+option "acc-th"		 s "Threshold for accessible probabilities"
+       			   float default="0.0" optional
+option "max-w"		 - "Maximum length of accessible regions"
+       			   int default="0" optional
+option "min-w"		 - "Minimum length of accessible regions"
+       			   int default="0" optional
 option "mccaskill"	 m "Use McCaskill model for folding"
 			   flag off
-option "allow-isolated" i "Allow isolated base-pairs"
-			   flag off
+option "allow-isolated"  i "Allow isolated base-pairs"
+			    flag off
 option "show-energy"	 e "calculate the free energy of the predicted joint structure"
 			   flag off
 option "param-file"	 P "Read the energy parameter file for Vienna RNA package"

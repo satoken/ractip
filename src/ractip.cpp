@@ -43,6 +43,7 @@ extern "C" {
 #include <ViennaRNA/fold.h>
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/part_func.h>
+#include <ViennaRNA/part_func_up.h>
 #include <ViennaRNA/utils.h>
 #include "pf_duplex.h"
   extern void read_parameter_file(const char fname[]);
@@ -63,9 +64,12 @@ class RactIP
 {
 public:
   RactIP()
-    : th_hy_(0.2),
+    : alpha_(0.5),
+      th_hy_(0.2),
       th_ss_(0.5),
-      alpha_(0.5),
+      th_ac_(0.0),
+      max_w_(0),
+      min_w_(0),
       in_pk_(true),
       use_contrafold_(true),
       stacking_constraints_(true),
@@ -91,6 +95,7 @@ private:
   void contrafold(const std::string& seq, VF& bp, VI& offset) const;
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
   void rnafold(const std::string& seq, VF& bp, VI& offset) const;
+  void rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const;
   void rnaduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
   void load_from_rip(const char* filename,
                      const std::string& s1, const std::string& s2,
@@ -98,9 +103,12 @@ private:
 
 private:
   // options
+  float alpha_;                // weight for the hybridization score
   float th_hy_;                // threshold for the hybridization probability
   float th_ss_;                // threshold for the base-pairing probability
-  float alpha_;                // weight for the hybridization score
+  float th_ac_;                // threshold for the accessible probability
+  int max_w_;                  // maximum length of accessible regions
+  int min_w_;                  // mimimum length of accessible regions
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
   bool stacking_constraints_;
@@ -120,7 +128,8 @@ contrafold(const std::string& seq, VF& bp, VI& offset) const
   ParameterManager<float> pm;
   InferenceEngine<float> en(false);
   VF w = GetDefaultComplementaryValues<float>();
-  bp.resize((seq.size()+1)*(seq.size()+2)/2, 0.0);
+  bp.resize((seq.size()+1)*(seq.size()+2)/2);
+  std::fill(bp.begin(), bp.end(), 0.0);
   en.RegisterParameters(pm);
   en.LoadValues(w);
   en.LoadSequence(ss);
@@ -189,8 +198,56 @@ rnafold(const std::string& seq, VF& bp, VI& offset) const
 
 void
 RactIP::
+rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
+{
+  uint L=seq.size();
+  bp.resize((L+1)*(L+2)/2);
+  offset.resize(L+1);
+  for (uint i=0; i<=L; ++i)
+    offset[i] = i*((L+1)+(L+1)-i-1)/2;
+#if 0
+  std::string str(seq.size()+1, '.');
+  float min_en = Vienna::fold(const_cast<char*>(seq.c_str()), &str[0]);
+  float sfact = 1.07;
+  float kT = (Vienna::temperature+273.15)*1.98717/1000.; /* in Kcal */
+  Vienna::pf_scale = exp(-(sfact*min_en)/kT/seq.size());
+#else
+  Vienna::pf_scale = -1;
+#endif
+#ifndef HAVE_VIENNA20
+  Vienna::init_pf_fold(L);
+#endif
+  Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+#ifdef HAVE_VIENNA20
+  FLT_OR_DBL* pr = Vienna::export_bppm();
+  int* iindx = Vienna::get_iindx(seq.size());
+#else
+  FLT_OR_DBL* pr = Vienna::pr;
+  int* iindx = Vienna::iindx;
+#endif
+  for (uint i=0; i!=L-1; ++i)
+    for (uint j=i+1; j!=L; ++j)
+      bp[offset[i+1]+(j+1)] = pr[iindx[i+1]-(j+1)];
+
+  up.resize(L, VF(max_w));
+  Vienna::pu_contrib* pu = Vienna::pf_unstru(const_cast<char*>(seq.c_str()), max_w);
+  assert(L==pu->length);
+  for (uint i=0; i!=L; ++i)
+    for (uint j=0; j!=max_w; ++j)
+      up[i][j]=pu->H[i+1][j] + pu->I[i+1][j] + pu->M[i+1][j] + pu->E[i+1][j];
+#ifdef HAVE_VIENNA20
+  Vienna::free_pu_contrib_struct(pu);
+#else
+  Vienna::free_pu_contrib(pu);
+#endif
+  Vienna::free_pf_arrays();
+}
+
+void
+RactIP::
 rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
 {
+  Vienna::pf_scale = -1;
   hp.resize(s1.size()+1, VF(s2.size()+1));
   Vienna::pf_duplex(s1.c_str(), s2.c_str());
   for (uint i=0; i!=s1.size(); ++i)
@@ -262,6 +319,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   VF bp1, bp2;
   VI offset1, offset2;
   VVF hp;
+  VVF up1, up2;
+  bool enable_accessibility = min_w_!=0 && max_w_!=0;
 
   // calculate posterior probability matrices
   if (!rip_file_.empty())
@@ -277,9 +336,16 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   else
   {
-    Vienna::pf_scale = -1;
-    rnafold(s1, bp1, offset1);
-    rnafold(s2, bp2, offset2);
+    if (enable_accessibility)
+    {
+      rnafold(s1, bp1, offset1, up1, max_w_);
+      rnafold(s2, bp2, offset2, up2, max_w_);
+    }
+    else
+    {
+      rnafold(s1, bp1, offset1);
+      rnafold(s2, bp2, offset2);
+    }
     rnaduplex(s1, s2, hp);
   }
   
@@ -328,15 +394,54 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       }
     }
   }
+
+  VI v, w;
+  std::vector< std::pair<uint,uint> > vv, ww;
+  if (enable_accessibility)
+  {
+    for (uint i=0; i!=up1.size(); ++i)
+      for (uint j=min_w_-1; j<up1[i].size(); ++j)
+        if (up1[i][j]>th_ac_)
+        {
+          v.push_back(ip.make_variable(0.0));
+          vv.push_back(std::make_pair(i,i+j));
+        }
+
+    for (uint i=0; i!=up2.size(); ++i)
+      for (uint j=min_w_-1; j<up2[i].size(); ++j)
+        if (up2[i][j]>th_ac_)
+        {
+          w.push_back(ip.make_variable(0.0));
+          ww.push_back(std::make_pair(i,i+j));
+        }
+  }
+
   ip.update();
 
   // constraint 1: each a_i is paired with at most one base
   for (uint i=0; i!=s1.size(); ++i)
   {
     int row = ip.make_constraint(IP::UP, 0, 1);
-    for (uint j=0; j!=s2.size(); ++j)
-      if (z[i][j]>=0)
-        ip.add_constraint(row, z[i][j], 1);
+    if (enable_accessibility)
+    {
+      int row_ac = ip.make_constraint(IP::LO, 0, 0);
+      for (uint j=0; j!=v.size(); ++j)
+        if (vv[j].first<=i && i<=vv[j].second)
+        {
+          ip.add_constraint(row, v[j], 1);
+          ip.add_constraint(row_ac, v[j], 1);
+        }
+      for (uint j=0; j!=s2.size(); ++j)
+        if (z[i][j]>=0)
+          ip.add_constraint(row_ac, z[i][j], -1);
+    }
+    else
+    {
+      for (uint j=0; j!=s2.size(); ++j)
+        if (z[i][j]>=0)
+          ip.add_constraint(row, z[i][j], 1);
+    }
+
     for (uint j=0; j<i; ++j)
       if (x[j][i]>=0)
         ip.add_constraint(row, x[j][i], 1);
@@ -345,19 +450,60 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         ip.add_constraint(row, x[i][j], 1);
   }
 
-  // constraint 2: each b_i is paired with at moat one
+  if (enable_accessibility)
+  {
+    for (uint i=0; i!=v.size(); ++i)
+      for (uint j=i+1; j!=v.size(); ++j)
+        if (vv[i].second+1==vv[j].first || vv[j].second+1==vv[i].first)
+        {
+          int row = ip.make_constraint(IP::UP, 0, 1);
+          ip.add_constraint(row, v[i], 1);
+          ip.add_constraint(row, v[j], 1);
+        }
+  }
+
+  // constraint 2: each b_i is paired with at most one
   for (uint i=0; i!=s2.size(); ++i)
   {
     int row = ip.make_constraint(IP::UP, 0, 1);
-    for (uint j=0; j!=s1.size(); ++j)
-      if (z[j][i]>=0)
-        ip.add_constraint(row, z[j][i], 1);
+    if (enable_accessibility)
+    {
+      int row_ac = ip.make_constraint(IP::LO, 0, 0);
+      for (uint j=0; j!=w.size(); ++j)
+        if (ww[j].first<=i && i<=ww[j].second)
+        {
+          ip.add_constraint(row, w[j], 1);
+          ip.add_constraint(row_ac, w[j], 1);
+        }
+      for (uint j=0; j!=s1.size(); ++j)
+        if (z[j][i]>=0)
+          ip.add_constraint(row_ac, z[j][i], -1);
+    }
+    else
+    {
+      for (uint j=0; j!=s1.size(); ++j)
+        if (z[j][i]>=0)
+          ip.add_constraint(row, z[j][i], 1);
+    }
+
     for (uint j=0; j<i; ++j)
       if (y[j][i]>=0)
         ip.add_constraint(row, y[j][i], 1);
     for (uint j=i+1; j<s2.size(); ++j)
       if (y[i][j]>=0)
         ip.add_constraint(row, y[i][j], 1);
+  }
+
+  if (enable_accessibility)
+  {
+    for (uint i=0; i!=w.size(); ++i)
+      for (uint j=i+1; j!=w.size(); ++j)
+        if (ww[i].second+1==ww[j].first || ww[j].second+1==ww[i].first)
+        {
+          int row = ip.make_constraint(IP::UP, 0, 1);
+          ip.add_constraint(row, w[i], 1);
+          ip.add_constraint(row, w[j], 1);
+        }
   }
 
   // constraint 3: disallow external pseudoknots
@@ -577,6 +723,26 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       }
     }
   }
+
+#if 0
+  std::cout << "v: ";
+  for (uint i=0; i!=v.size(); ++i)
+  {
+    if (ip.get_value(v[i])>0.5)
+      std::cout << "(" << vv[i].first << "," << vv[i].second << ","
+                << up1[vv[i].first][vv[i].second-vv[i].first]<< "), ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "w: ";
+  for (uint i=0; i!=w.size(); ++i)
+  {
+    if (ip.get_value(w[i])>0.5)
+      std::cout << "(" << ww[i].first << "," << ww[i].second << ","
+                << up2[ww[i].first][ww[i].second-ww[i].first]<< "), ";
+  }
+  std::cout << std::endl;
+#endif
 }
 
 RactIP&
@@ -589,6 +755,9 @@ parse_options(int& argc, char**& argv)
   alpha_ = args_info.alpha_arg;
   th_ss_ = args_info.fold_th_arg;
   th_hy_ = args_info.hybridize_th_arg;
+  th_ac_ = args_info.acc_th_arg;
+  max_w_ = args_info.max_w_arg;
+  min_w_ = args_info.min_w_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.mccaskill_flag==0;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
@@ -597,7 +766,8 @@ parse_options(int& argc, char**& argv)
   show_energy_ = args_info.show_energy_flag==1;
   if (args_info.param_file_given) param_file_ = args_info.param_file_arg;
 
-  if (args_info.inputs_num==0)
+  if (args_info.inputs_num==0 ||
+      (min_w_!=0 && max_w_!=0 && (min_w_>max_w_ || use_contrafold_)))
   {
     cmdline_parser_print_help();
     cmdline_parser_free(&args_info);
