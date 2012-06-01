@@ -30,7 +30,6 @@
 #include <string>
 #include <vector>
 #include <list>
-#include <boost/multi_array.hpp>
 #include "fa.h"
 #include "ip.h"
 
@@ -55,6 +54,10 @@ extern "C" {
 };
 
 typedef unsigned int uint;
+typedef std::vector<float> VF;
+typedef std::vector<VF> VVF;
+typedef std::vector<int> VI;
+typedef std::vector<VI> VVI;
 
 class RactIP
 {
@@ -85,15 +88,13 @@ public:
              std::string& r1, std::string& r2);
 
 private:
-  void contrafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset) const;
-  void contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<float, 2>& hp) const;
-  void rnafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset) const;
-  void rnaduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<float, 2>& hp) const;
+  void contrafold(const std::string& seq, VF& bp, VI& offset) const;
+  void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
+  void rnafold(const std::string& seq, VF& bp, VI& offset) const;
+  void rnaduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
   void load_from_rip(const char* filename,
                      const std::string& s1, const std::string& s2,
-                     std::vector<float>& bp1, std::vector<int>& offset1,
-                     std::vector<float>& bp2, std::vector<int>& offset2,
-                     boost::multi_array<float, 2>& hp) const;
+                     VF& bp1, VI& offset1, VF& bp2, VI& offset2, VVF& hp) const;
 
 private:
   // options
@@ -113,12 +114,12 @@ private:
 
 void
 RactIP::
-contrafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset) const
+contrafold(const std::string& seq, VF& bp, VI& offset) const
 {
   SStruct ss("unknown", seq);
   ParameterManager<float> pm;
   InferenceEngine<float> en(false);
-  std::vector<float> w = GetDefaultComplementaryValues<float>();
+  VF w = GetDefaultComplementaryValues<float>();
   bp.resize((seq.size()+1)*(seq.size()+2)/2, 0.0);
   en.RegisterParameters(pm);
   en.LoadValues(w);
@@ -131,14 +132,14 @@ contrafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& off
 
 void
 RactIP::
-contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_array<float, 2>& hp) const
+contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const
 {
-  hp.resize(boost::extents[seq1.size()+1][seq2.size()+1]);
+  hp.resize(seq1.size()+1, VF(seq2.size()+1));
   SStruct ss1("unknown", seq1), ss2("unknown", seq2);
   ParameterManager<float> pm;
   DuplexEngine<float> en(false);
-  std::vector<float> w = GetDefaultComplementaryValues<float>();
-  std::vector<float> ip;
+  VF w = GetDefaultComplementaryValues<float>();
+  VF ip;
   en.RegisterParameters(pm);
   en.LoadValues(w);
   en.LoadSequence(ss1, ss2);
@@ -153,7 +154,7 @@ contraduplex(const std::string& seq1, const std::string& seq2, boost::multi_arra
 
 void
 RactIP::
-rnafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset) const
+rnafold(const std::string& seq, VF& bp, VI& offset) const
 {
   uint L=seq.size();
   bp.resize((L+1)*(L+2)/2);
@@ -173,26 +174,24 @@ rnafold(const std::string& seq, std::vector<float>& bp, std::vector<int>& offset
   Vienna::init_pf_fold(L);
 #endif
   Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+#ifdef HAVE_VIENNA20
+  FLT_OR_DBL* pr = Vienna::export_bppm();
+  int* iindx = Vienna::get_iindx(seq.size());
+#else
+  FLT_OR_DBL* pr = Vienna::pr;
+  int* iindx = Vienna::iindx;
+#endif
   for (uint i=0; i!=L-1; ++i)
     for (uint j=i+1; j!=L; ++j)
-    {
-#ifdef HAVE_VIENNA20
-      FLT_OR_DBL* pr = Vienna::export_bppm();
-      int* iindx = Vienna::get_iindx(seq.size());
-#else
-      FLT_OR_DBL* pr = Vienna::pr;
-      int* iindx = Vienna::iindx;
-#endif
       bp[offset[i+1]+(j+1)] = pr[iindx[i+1]-(j+1)];
-    }
   Vienna::free_pf_arrays();
 }
 
 void
 RactIP::
-rnaduplex(const std::string& s1, const std::string& s2, boost::multi_array<float, 2>& hp) const
+rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
 {
-  hp.resize(boost::extents[s1.size()+1][s2.size()+1]);
+  hp.resize(s1.size()+1, VF(s2.size()+1));
   Vienna::pf_duplex(s1.c_str(), s2.c_str());
   for (uint i=0; i!=s1.size(); ++i)
     for (uint j=0; j!=s2.size(); ++j)
@@ -204,9 +203,7 @@ void
 RactIP::
 load_from_rip(const char* filename,
               const std::string& s1, const std::string& s2,
-              std::vector<float>& bp1, std::vector<int>& offset1,
-              std::vector<float>& bp2, std::vector<int>& offset2,
-              boost::multi_array<float, 2>& hp) const
+              VF& bp1, VI& offset1, VF& bp2, VI& offset2, VVF& hp) const
 {
   enum { NONE, TABLE_R, TABLE_S, TABLE_I };
   uint st=NONE;
@@ -223,7 +220,7 @@ load_from_rip(const char* filename,
   for (uint i=0; i<=L2; ++i)
     offset2[i] = i*((L2+1)+(L2+1)-i-1)/2;
 
-  hp.resize(boost::extents[L1+1][L2+1]);
+  hp.resize(L1+1, VF(L2+1));
 
   std::ifstream is(filename);
   std::string l;
@@ -262,9 +259,9 @@ RactIP::
 solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
 {
   IP ip(IP::MAX, n_th_);
-  std::vector<float> bp1, bp2;
-  std::vector<int> offset1, offset2;
-  boost::multi_array<float, 2> hp;
+  VF bp1, bp2;
+  VI offset1, offset2;
+  VVF hp;
 
   // calculate posterior probability matrices
   if (!rip_file_.empty())
@@ -287,9 +284,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   
   // make objective variables with their weights
-  boost::multi_array<int, 2> x(boost::extents[s1.size()][s1.size()]);
-  std::vector< std::vector<int> > xx(s1.size());
-  std::fill(x.data(), x.data()+x.num_elements(), -1);
+  VVI x(s1.size(), VI(s1.size(), -1));
+  VVI xx(s1.size());
   for (uint j=1; j!=s1.size(); ++j)
   {
     for (uint i=j-1; i!=-1u; --i)
@@ -303,9 +299,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-  boost::multi_array<int, 2> y(boost::extents[s2.size()][s2.size()]);
-  std::vector< std::vector<int> > yy(s2.size());
-  std::fill(y.data(), y.data()+y.num_elements(), -1);
+  VVI y(s2.size(), VI(s2.size(), -1));
+  VVI yy(s2.size());
   for (uint j=1; j!=s2.size(); ++j)
   {
     for (uint i=j-1; i!=-1u; --i)
@@ -319,9 +314,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-  boost::multi_array<int, 2> z(boost::extents[s1.size()][s2.size()]);
+  VVI z(s1.size(), VI(s2.size(), -1));
   std::vector< std::vector<int> > zz(s1.size());
-  std::fill(z.data(), z.data()+z.num_elements(), -1);
   for (uint i=0; i!=s1.size(); ++i)
   {
     for (uint j=0; j!=s2.size(); ++j)
