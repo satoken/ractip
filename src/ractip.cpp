@@ -44,6 +44,7 @@ extern "C" {
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/part_func.h>
 #include <ViennaRNA/part_func_up.h>
+#include <ViennaRNA/part_func_co.h>
 #include <ViennaRNA/utils.h>
 #include "pf_duplex.h"
   extern void read_parameter_file(const char fname[]);
@@ -59,6 +60,11 @@ typedef std::vector<float> VF;
 typedef std::vector<VF> VVF;
 typedef std::vector<int> VI;
 typedef std::vector<VI> VVI;
+#ifdef HAVE_VIENNA18
+typedef Vienna::plist pair_info;
+#else
+typedef Vienna::pair_info pair_info;
+#endif
 
 class RactIP
 {
@@ -231,7 +237,7 @@ rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
 
   up.resize(L, VF(max_w));
   Vienna::pu_contrib* pu = Vienna::pf_unstru(const_cast<char*>(seq.c_str()), max_w);
-  assert(L==pu->length);
+  assert((int)L==pu->length);
   for (uint i=0; i!=L; ++i)
     for (uint j=0; j!=max_w; ++j)
       up[i][j]=pu->H[i+1][j] + pu->I[i+1][j] + pu->M[i+1][j] + pu->E[i+1][j];
@@ -247,6 +253,7 @@ void
 RactIP::
 rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
 {
+#if 0
   Vienna::pf_scale = -1;
   hp.resize(s1.size()+1, VF(s2.size()+1));
   Vienna::pf_duplex(s1.c_str(), s2.c_str());
@@ -254,6 +261,27 @@ rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
     for (uint j=0; j!=s2.size(); ++j)
       hp[i+1][j+1] = Vienna::pr_duplex[i+1][j+1];
   Vienna::free_pf_duplex();
+#else
+  hp.clear();
+  hp.resize(s1.size()+1, VF(s2.size()+1, 0.0));
+  std::string s=s1+s2;
+  std::string c(s.size(), 'e');
+  Vienna::pf_scale = -1;
+  Vienna::cut_point = s1.size()+1;
+  Vienna::co_pf_fold(const_cast<char*>(s.c_str()), const_cast<char*>(c.c_str()));
+  pair_info* pi = NULL;
+#ifdef HAVE_VIENNA20
+  Vienna::assign_plist_from_pr(&pi, Vienna::export_co_bppm(), s.size(), th_hy_);
+#else
+  pi = Vienna::get_plist((pair_info*)malloc(sizeof(*pi)*s.size()), s.size(), th_hy_);
+#endif
+  for (uint k=0; pi[k].i!=0; ++k)
+    if (pi[k].p>th_hy_)
+      hp[pi[k].i][pi[k].j-Vienna::cut_point+1]=pi[k].p;
+  if (pi) free(pi);
+  Vienna::free_co_pf_arrays();
+  Vienna::cut_point = -1;
+#endif
 }
 
 void
