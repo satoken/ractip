@@ -59,4 +59,5 @@ respectively.
 
 * Kato, Y., Sato, K., Hamada, M., Watanabe, Y., Asai, K., Akutsu, T.:
   RactIP: fast and accurate prediction of RNA-RNA interaction using
-  integer programming. submitted.
+  integer programming. Bioinformatics, 26(18):i460-i466, 2010.
+

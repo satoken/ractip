@@ -276,7 +276,7 @@ rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
   pi = Vienna::get_plist((pair_info*)malloc(sizeof(*pi)*s.size()), s.size(), th_hy_);
 #endif
   for (uint k=0; pi[k].i!=0; ++k)
-    if (pi[k].p>th_hy_)
+    if (pi[k].i<Vienna::cut_point && pi[k].j>=Vienna::cut_point && pi[k].p>th_hy_)
       hp[pi[k].i][pi[k].j-Vienna::cut_point+1]=pi[k].p;
   if (pi) free(pi);
   Vienna::free_co_pf_arrays();
