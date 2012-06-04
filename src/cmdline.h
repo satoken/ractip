@@ -42,6 +42,7 @@ extern "C" {
 struct gengetopt_args_info
 {
   const char *help_help; /**< @brief Print help and exit help description.  */
+  const char *full_help_help; /**< @brief Print help, including hidden options, and exit help description.  */
   const char *version_help; /**< @brief Print version and exit help description.  */
   float alpha_arg;	/**< @brief weight for hybridation probabilities (default='0.5').  */
   char * alpha_orig;	/**< @brief weight for hybridation probabilities original value given at command line.  */
@@ -77,6 +78,7 @@ struct gengetopt_args_info
   const char *rip_help; /**< @brief Import posterior probabilities from the result of RIP help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
+  unsigned int full_help_given ;	/**< @brief Whether full-help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
   unsigned int alpha_given ;	/**< @brief Whether alpha was given.  */
   unsigned int fold_th_given ;	/**< @brief Whether fold-th was given.  */
@@ -111,6 +113,8 @@ extern const char *gengetopt_args_info_purpose;
 extern const char *gengetopt_args_info_usage;
 /** @brief all the lines making the help output */
 extern const char *gengetopt_args_info_help[];
+/** @brief all the lines making the full help output (including hidden options) */
+extern const char *gengetopt_args_info_full_help[];
 
 /**
  * The command line parser
@@ -172,6 +176,10 @@ int cmdline_parser_file_save(const char *filename,
  * Print the help
  */
 void cmdline_parser_print_help(void);
+/**
+ * Print the full help (including hidden options)
+ */
+void cmdline_parser_print_full_help(void);
 /**
  * Print the version
  */

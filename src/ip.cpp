@@ -1,27 +1,29 @@
 /*
- * $Id:$
- * 
- * Copyright (C) 2010 Kengo Sato
+ * Copyright (C) 2012 Kengo Sato
  *
- * This file is part of IPknot.
+ * This file is part of DAFS.
  *
- * IPknot is free software: you can redistribute it and/or modify
+ * DAFS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * IPknot is distributed in the hope that it will be useful,
+ * DAFS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with IPknot.  If not, see <http://www.gnu.org/licenses/>.
+ * along with DAFS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
 #include "ip.h"
 #include <vector>
+#include <cassert>
 #ifdef WITH_GLPK
 #include <glpk.h>
 #endif
@@ -77,14 +79,16 @@ public:
 
   void add_constraint(int row, int col, double val)
   {
+    assert(row>=0);
     ia_.push_back(row);
+    assert(col>=0);
     ja_.push_back(col);
     ar_.push_back(val);
   }
 
   void update() {}
 
-  void solve()
+  double solve()
   {
     glp_smcp smcp;
     glp_iocp iocp;
@@ -93,6 +97,7 @@ public:
     glp_load_matrix(ip_, ia_.size()-1, &ia_[0], &ja_[0], &ar_[0]);
     glp_simplex(ip_, &smcp);
     glp_intopt(ip_, &iocp);
+    return glp_get_obj_val(ip_);
   }
 
   double get_value(int col) const
@@ -117,6 +122,7 @@ public:
   {
     env_ = new GRBEnv;
     env_->set(GRB_IntParam_Threads, n_th); // # of threads
+    env_->set(GRB_IntParam_OutputFlag, 0); // disable solver's outputs
     model_ = new GRBModel(*env_);
   }
 
@@ -151,7 +157,7 @@ public:
     model_->update();
   }
 
-  void solve()
+  double solve()
   {
     for (unsigned int i=0; i!=m_.size(); ++i)
     {
@@ -171,6 +177,7 @@ public:
     u_.clear();
     m_.clear();
     model_->optimize();
+    return model_->get(GRB_DoubleAttr_ObjVal);
   }
 
   double get_value(int col) const
@@ -203,6 +210,7 @@ public:
   ~IPimpl()
   {
     delete cplex_;
+    env_.end();
   }
 
   int make_variable(double coef)
@@ -236,7 +244,7 @@ public:
     }
   }
 
-  void solve()
+  double solve()
   {
     for (unsigned int i=0; i!=m_.size(); ++i)
     {
@@ -257,7 +265,10 @@ public:
     m_.clear();
 
     cplex_ = new IloCplex(model_);
+    cplex_->setParam(IloCplex::Threads, n_th_);
+    cplex_->setParam(IloCplex::MIPDisplay, 0);
     cplex_->solve();
+    return cplex_->getObjValue();
   }
 
   double get_value(int col) const
@@ -279,6 +290,8 @@ private:
   int n_th_;
 };
 #endif  // WITH_CPLEX
+
+#if defined(WITH_GLPK) || defined(WITH_CPLEX) || defined(WITH_GUROBI)
 
 IP::
 IP(DirType dir, int n_th)
@@ -320,11 +333,11 @@ update()
   impl_->update();
 }
 
-void
+double
 IP::
 solve()
 {
-  impl_->solve();
+  return impl_->solve();
 }
 
 double
@@ -333,3 +346,64 @@ get_value(int col) const
 {
   return impl_->get_value(col);
 }
+
+#else
+
+IP::
+IP(DirType dir, int n_th)
+{
+  throw "no IP solver is linked.";
+}
+
+IP::
+~IP()
+{
+  throw "no IP solver is linked.";
+}
+
+int
+IP::
+make_variable(double coef)
+{
+  throw "no IP solver is linked.";
+  return 0;
+}
+
+int
+IP::
+make_constraint(BoundType bnd, double l, double u)
+{
+  throw "no IP solver is linked.";
+  return 0;
+}
+
+void
+IP::
+add_constraint(int row, int col, double val)
+{
+  throw "no IP solver is linked.";
+}
+
+void
+IP::
+update()
+{
+  throw "no IP solver is linked.";
+}
+
+double
+IP::
+solve()
+{
+  throw "no IP solver is linked.";
+}
+
+double
+IP::
+get_value(int col) const
+{
+  throw "no IP solver is linked.";
+  return 0;
+}
+
+#endif

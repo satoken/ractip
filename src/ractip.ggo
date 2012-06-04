@@ -23,6 +23,7 @@ option "show-energy"	 e "calculate the free energy of the predicted joint struct
 option "param-file"	 P "Read the energy parameter file for Vienna RNA package"
        			   string typestr="FILENAME" optional
 option "no-pk"		 p "do not use the constraints for interenal pseudoknots"
-       			   flag off
+       			   flag off hidden
 option "rip"		 r "Import posterior probabilities from the result of RIP"
-       			   string typestr="FILENAME" optional
+       			   string typestr="FILENAME" optional hidden
+			   
