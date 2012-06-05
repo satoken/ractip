@@ -2,8 +2,10 @@
 
 purpose "RactIP: RNA-RNA interation prediction using integer programming."
 
-option "alpha"	 	 a "weight for hybridation probabilities"
+option "alpha"	 	 a "weight for hybridization"
 			   float default="0.5" optional
+option "beta"	 	 b "weight for unpaired bases"
+			   float default="0.0" optional
 option "fold-th"	 t "Threshold for base-pairing probabilities"
 			   float default="0.5" optional
 option "hybridize-th"	 u "Threshold for hybridazation probabilities"
@@ -26,4 +28,7 @@ option "no-pk"		 p "do not use the constraints for interenal pseudoknots"
        			   flag off hidden
 option "rip"		 r "Import posterior probabilities from the result of RIP"
        			   string typestr="FILENAME" optional hidden
-			   
+option "pf-duplex"	 - "Use pf_duplex routine"
+       			   flag off hidden
+option "allow-concat"	 - "Allow concatenation of accessible regions"
+       			   flag off hidden

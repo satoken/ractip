@@ -28,12 +28,12 @@
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
-#ifdef HAVE_VIENNA20
-#include <ViennaRNA/utils.h>
-#else
-void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
+
+#define MIN2(A, B)      ((A) < (B) ? (A) : (B))
+#define MAX2(A, B)      ((A) > (B) ? (A) : (B))
 void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
-#endif
+void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
+
 #include <ViennaRNA/energy_par.h>
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/fold.h>
@@ -49,9 +49,6 @@ void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
 
 PRIVATE void  encode_seqs(const char *s1, const char *s2);
 PRIVATE short *encode_seq(const char *seq);
-
-#define MIN2(A, B)      ((A) < (B) ? (A) : (B))
-#define MAX2(A, B)      ((A) > (B) ? (A) : (B))
 
 PRIVATE paramT *P = NULL;
 

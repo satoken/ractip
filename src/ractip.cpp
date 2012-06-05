@@ -71,6 +71,7 @@ class RactIP
 public:
   RactIP()
     : alpha_(0.5),
+      beta_(0.0),
       th_hy_(0.2),
       th_ss_(0.5),
       th_ac_(0.0),
@@ -78,8 +79,10 @@ public:
       min_w_(0),
       in_pk_(true),
       use_contrafold_(true),
+      use_pf_duplex_(false),
       stacking_constraints_(true),
       show_energy_(false),
+      allow_concat_(false),
       n_th_(1),
       rip_file_(),
       param_file_(),
@@ -110,6 +113,7 @@ private:
 private:
   // options
   float alpha_;                // weight for the hybridization score
+  float beta_;                 // weight for unpaired bases
   float th_hy_;                // threshold for the hybridization probability
   float th_ss_;                // threshold for the base-pairing probability
   float th_ac_;                // threshold for the accessible probability
@@ -117,8 +121,10 @@ private:
   int min_w_;                  // mimimum length of accessible regions
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
+  bool use_pf_duplex_;
   bool stacking_constraints_;
   bool show_energy_;
+  bool allow_concat_;
   int n_th_;                   // the number of threads
   std::string rip_file_;
   std::string param_file_;
@@ -253,35 +259,38 @@ void
 RactIP::
 rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
 {
-#if 0
-  Vienna::pf_scale = -1;
-  hp.resize(s1.size()+1, VF(s2.size()+1));
-  Vienna::pf_duplex(s1.c_str(), s2.c_str());
-  for (uint i=0; i!=s1.size(); ++i)
-    for (uint j=0; j!=s2.size(); ++j)
-      hp[i+1][j+1] = Vienna::pr_duplex[i+1][j+1];
-  Vienna::free_pf_duplex();
-#else
-  hp.clear();
-  hp.resize(s1.size()+1, VF(s2.size()+1, 0.0));
-  std::string s=s1+s2;
-  std::string c(s.size(), 'e');
-  Vienna::pf_scale = -1;
-  Vienna::cut_point = s1.size()+1;
-  Vienna::co_pf_fold(const_cast<char*>(s.c_str()), const_cast<char*>(c.c_str()));
-  pair_info* pi = NULL;
+  if (use_pf_duplex_)
+  {
+    Vienna::pf_scale = -1;
+    hp.resize(s1.size()+1, VF(s2.size()+1));
+    Vienna::pf_duplex(s1.c_str(), s2.c_str());
+    for (uint i=0; i!=s1.size(); ++i)
+      for (uint j=0; j!=s2.size(); ++j)
+        hp[i+1][j+1] = Vienna::pr_duplex[i+1][j+1];
+    Vienna::free_pf_duplex();
+  }
+  else
+  {
+    hp.clear();
+    hp.resize(s1.size()+1, VF(s2.size()+1, 0.0));
+    std::string s=s1+s2;
+    std::string c(s.size(), 'e');
+    Vienna::pf_scale = -1;
+    Vienna::cut_point = s1.size()+1;
+    Vienna::co_pf_fold(const_cast<char*>(s.c_str()), const_cast<char*>(c.c_str()));
+    pair_info* pi = NULL;
 #ifdef HAVE_VIENNA20
-  Vienna::assign_plist_from_pr(&pi, Vienna::export_co_bppm(), s.size(), th_hy_);
+    Vienna::assign_plist_from_pr(&pi, Vienna::export_co_bppm(), s.size(), th_hy_);
 #else
-  pi = Vienna::get_plist((pair_info*)malloc(sizeof(*pi)*s.size()), s.size(), th_hy_);
+    pi = Vienna::get_plist((pair_info*)malloc(sizeof(*pi)*s.size()), s.size(), th_hy_);
 #endif
-  for (uint k=0; pi[k].i!=0; ++k)
-    if (pi[k].i<Vienna::cut_point && pi[k].j>=Vienna::cut_point && pi[k].p>th_hy_)
-      hp[pi[k].i][pi[k].j-Vienna::cut_point+1]=pi[k].p;
-  if (pi) free(pi);
-  Vienna::free_co_pf_arrays();
-  Vienna::cut_point = -1;
-#endif
+    for (uint k=0; pi[k].i!=0; ++k)
+      if (pi[k].i<Vienna::cut_point && pi[k].j>=Vienna::cut_point && pi[k].p>th_hy_)
+        hp[pi[k].i][pi[k].j-Vienna::cut_point+1]=pi[k].p;
+    if (pi) free(pi);
+    Vienna::free_co_pf_arrays();
+    Vienna::cut_point = -1;
+  }
 }
 
 void
@@ -364,6 +373,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   else
   {
+#if 0
     if (enable_accessibility)
     {
       rnafold(s1, bp1, offset1, up1, max_w_);
@@ -374,6 +384,10 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       rnafold(s1, bp1, offset1);
       rnafold(s2, bp2, offset2);
     }
+#else
+    rnafold(s1, bp1, offset1, up1, std::max(1, max_w_));
+    rnafold(s2, bp2, offset2, up2, std::max(1, max_w_));
+#endif
     rnaduplex(s1, s2, hp);
   }
   
@@ -417,7 +431,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       const float& p=hp[i+1][j+1];
       if (p>th_hy_)
       {
-        z[i][j] = ip.make_variable(alpha_*p);
+        z[i][j] = ip.make_variable(alpha_*p+beta_*(up1[i][0]+up2[j][0]));
         zz[i].push_back(j);
       }
     }
@@ -478,7 +492,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         ip.add_constraint(row, x[i][j], 1);
   }
 
-  if (enable_accessibility)
+  if (enable_accessibility && !allow_concat_)
   {
     for (uint i=0; i!=v.size(); ++i)
       for (uint j=i+1; j!=v.size(); ++j)
@@ -522,7 +536,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         ip.add_constraint(row, y[i][j], 1);
   }
 
-  if (enable_accessibility)
+  if (enable_accessibility && !allow_concat_)
   {
     for (uint i=0; i!=w.size(); ++i)
       for (uint j=i+1; j!=w.size(); ++j)
@@ -781,6 +795,7 @@ parse_options(int& argc, char**& argv)
   if (cmdline_parser(argc, argv, &args_info)!=0) exit(1);
 
   alpha_ = args_info.alpha_arg;
+  beta_ = args_info.beta_arg;
   th_ss_ = args_info.fold_th_arg;
   th_hy_ = args_info.hybridize_th_arg;
   th_ac_ = args_info.acc_th_arg;
@@ -788,7 +803,9 @@ parse_options(int& argc, char**& argv)
   min_w_ = args_info.min_w_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.mccaskill_flag==0;
+  use_pf_duplex_ = args_info.pf_duplex_flag;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
+  allow_concat_ = args_info.allow_concat_flag;
   n_th_ = 1; // args_info.n_th_arg;
   if (args_info.rip_given) rip_file_ = args_info.rip_arg;
   show_energy_ = args_info.show_energy_flag==1;
