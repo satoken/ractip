@@ -101,7 +101,7 @@ public:
              std::string& r1, std::string& r2);
 
 private:
-  void contrafold(const std::string& seq, VF& bp, VI& offset) const;
+  void contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const;
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
   void rnafold(const std::string& seq, VF& bp, VI& offset) const;
   void rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const;
@@ -134,7 +134,7 @@ private:
 
 void
 RactIP::
-contrafold(const std::string& seq, VF& bp, VI& offset) const
+contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const
 {
   SStruct ss("unknown", seq);
   ParameterManager<float> pm;
@@ -149,6 +149,17 @@ contrafold(const std::string& seq, VF& bp, VI& offset) const
   en.ComputeOutside();
   en.ComputePosterior();
   en.GetPosterior(0, bp, offset);
+
+  const uint L=seq.size();
+  up.resize(L, VF(1, 1.0));
+  for (uint i=0; i!=L; ++i)
+  {
+    for (uint j=0; j<i; ++j)
+      up[i][0] -= bp[offset[j+1]+(i+1)];
+    for (uint j=i+1; j<L; ++j)
+      up[i][0] -= bp[offset[i+1]+(j+1)];
+    up[i][0] = std::max(0.0f, up[i][0]);
+  }
 }    
 
 void
@@ -366,8 +377,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   else if (use_contrafold_)
   {
-    contrafold(s1, bp1, offset1);
-    contrafold(s2, bp2, offset2);
+    contrafold(s1, bp1, offset1, up1);
+    contrafold(s2, bp2, offset2, up2);
     //contraduplex(s1, s2, hp);
     rnaduplex(s1, s2, hp);
   }
