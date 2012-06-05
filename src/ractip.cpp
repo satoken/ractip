@@ -357,7 +357,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   VI offset1, offset2;
   VVF hp;
   VVF up1, up2;
-  bool enable_accessibility = min_w_!=0 && max_w_!=0;
+  bool enable_accessibility = min_w_>1 && max_w_>=min_w_;
 
   // calculate posterior probability matrices
   if (!rip_file_.empty())
@@ -429,7 +429,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     for (uint j=0; j!=s2.size(); ++j)
     {
       const float& p=hp[i+1][j+1];
-      if (p>th_hy_)
+      if (p>th_hy_ && (min_w_==1 && up1[i][0]>th_ac_ && up2[j][0]>th_ac_ || min_w_!=1))
       {
         z[i][j] = ip.make_variable(alpha_*p+beta_*(up1[i][0]+up2[j][0]));
         zz[i].push_back(j);
