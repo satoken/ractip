@@ -65,6 +65,15 @@ struct gengetopt_args_info
   int min_w_arg;	/**< @brief Minimum length of accessible regions (default='0').  */
   char * min_w_orig;	/**< @brief Minimum length of accessible regions original value given at command line.  */
   const char *min_w_help; /**< @brief Minimum length of accessible regions help description.  */
+  int zscore_arg;	/**< @brief Calculate z-score via dishuffling (0=no shuffling, 1=1st seq only, 2=2nd seq only, or 12=both) (default='0').  */
+  char * zscore_orig;	/**< @brief Calculate z-score via dishuffling (0=no shuffling, 1=1st seq only, 2=2nd seq only, or 12=both) original value given at command line.  */
+  const char *zscore_help; /**< @brief Calculate z-score via dishuffling (0=no shuffling, 1=1st seq only, 2=2nd seq only, or 12=both) help description.  */
+  int num_shuffling_arg;	/**< @brief The number of shuffling (default='1000').  */
+  char * num_shuffling_orig;	/**< @brief The number of shuffling original value given at command line.  */
+  const char *num_shuffling_help; /**< @brief The number of shuffling help description.  */
+  int seed_arg;	/**< @brief Seed for random number generator (default='0').  */
+  char * seed_orig;	/**< @brief Seed for random number generator original value given at command line.  */
+  const char *seed_help; /**< @brief Seed for random number generator help description.  */
   int mccaskill_flag;	/**< @brief Use McCaskill model for folding (default=off).  */
   const char *mccaskill_help; /**< @brief Use McCaskill model for folding help description.  */
   int allow_isolated_flag;	/**< @brief Allow isolated base-pairs (default=off).  */
@@ -94,6 +103,9 @@ struct gengetopt_args_info
   unsigned int acc_th_given ;	/**< @brief Whether acc-th was given.  */
   unsigned int max_w_given ;	/**< @brief Whether max-w was given.  */
   unsigned int min_w_given ;	/**< @brief Whether min-w was given.  */
+  unsigned int zscore_given ;	/**< @brief Whether zscore was given.  */
+  unsigned int num_shuffling_given ;	/**< @brief Whether num-shuffling was given.  */
+  unsigned int seed_given ;	/**< @brief Whether seed was given.  */
   unsigned int mccaskill_given ;	/**< @brief Whether mccaskill was given.  */
   unsigned int allow_isolated_given ;	/**< @brief Whether allow-isolated was given.  */
   unsigned int show_energy_given ;	/**< @brief Whether show-energy was given.  */

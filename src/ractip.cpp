@@ -24,6 +24,8 @@
 #endif
 #include "cmdline.h"
 #include <unistd.h>
+#include <cstdlib>
+#include <sys/time.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -51,6 +53,13 @@ extern "C" {
 };
 };
 
+namespace uShuffle {
+extern "C" {
+#include "ushuffle.h"
+};
+};
+
+
 extern "C" {
 #include "boltzmann_param.h"
 };
@@ -77,6 +86,9 @@ public:
       th_ac_(0.0),
       max_w_(0),
       min_w_(0),
+      enable_zscore_(0),
+      num_shuffling_(0),
+      seed_(0),
       in_pk_(true),
       use_contrafold_(true),
       use_pf_duplex_(false),
@@ -100,6 +112,10 @@ public:
   void solve(const std::string& s1, const std::string& s2,
              std::string& r1, std::string& r2);
 
+  static void calculate_energy(const std::string s1, const std::string& s2,
+                               const std::string r1, const std::string& r2,
+                               float& e1, float& e2, float& e3);
+
 private:
   void contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const;
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
@@ -119,6 +135,9 @@ private:
   float th_ac_;                // threshold for the accessible probability
   int max_w_;                  // maximum length of accessible regions
   int min_w_;                  // mimimum length of accessible regions
+  int enable_zscore_;          // flag for calculating z-score
+  int num_shuffling_;          // the number of shuffling for calculating z-score
+  uint seed_;                  // seed for random()
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
   bool use_pf_duplex_;
@@ -812,6 +831,9 @@ parse_options(int& argc, char**& argv)
   th_ac_ = args_info.acc_th_arg;
   max_w_ = args_info.max_w_arg;
   min_w_ = args_info.min_w_arg;
+  enable_zscore_ = args_info.zscore_arg;
+  num_shuffling_ = args_info.num_shuffling_arg;
+  seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.mccaskill_flag==0;
   use_pf_duplex_ = args_info.pf_duplex_flag;
@@ -836,6 +858,55 @@ parse_options(int& argc, char**& argv)
 
   cmdline_parser_free(&args_info);
   return *this;
+}
+
+// static
+void
+RactIP::
+calculate_energy(const std::string s1, const std::string& s2,
+                 const std::string r1, const std::string& r2,
+                 float& e1, float& e2, float& e3)
+{
+#ifdef HAVE_VIENNA20
+  e1=Vienna::energy_of_structure(s1.c_str(), r1.c_str(), -1);
+  e2=Vienna::energy_of_structure(s2.c_str(), r2.c_str(), -1);
+#else
+  Vienna::eos_debug = -1;
+  e1=Vienna::energy_of_struct(s1.c_str(), r1.c_str());
+  e2=Vienna::energy_of_struct(s2.c_str(), r2.c_str());
+#endif
+  std::string ss(s1+"NNN"+s2);
+
+  std::string r1_temp(r1);
+  for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+  {
+    switch (*x)
+    {
+      case '(': case ')': *x='.'; break;
+      case '[': *x='('; break;
+      default: break;
+    }
+  }
+
+  std::string r2_temp(r2);
+  for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
+  {
+    switch (*x)
+    {
+      case '(': case ')': *x='.'; break;
+      case ']': *x=')'; break;
+      default: break;
+    }
+  }
+
+  std::string rr(r1_temp+"..."+r2_temp);
+  //std::cout << ss << std::endl << rr << std::endl;
+#ifdef HAVE_VIENNA20
+  e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
+#else
+  Vienna::eos_debug = -1;
+  e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+#endif
 }
 
 int
@@ -881,53 +952,55 @@ run()
             << fa2.seq() << std::endl << r2 << std::endl;
 
   // show energy of the joint structure
-  if (show_energy_)
+  if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
   {
-#ifdef HAVE_VIENNA20
-    float e1=Vienna::energy_of_structure(fa1.seq().c_str(), r1.c_str(), -1);
-    float e2=Vienna::energy_of_structure(fa2.seq().c_str(), r2.c_str(), -1);
-#else
-    Vienna::eos_debug = -1;
-    float e1=Vienna::energy_of_struct(fa1.seq().c_str(), r1.c_str());
-    float e2=Vienna::energy_of_struct(fa2.seq().c_str(), r2.c_str());
-#endif
-    std::string ss(fa1.seq()+"NNN"+fa2.seq());
+    float e1, e2, e3;
+    calculate_energy(fa1.seq(), fa2.seq(), r1, r2, e1, e2, e3);
+    if (show_energy_)
+      std::cout << "(E: S1=" << e1 << ", "
+                << "S2=" << e2 << ", "
+                << "H=" << e3 << ", "
+                << "JS=" << e1+e2+e3 << ")" << std::endl;
 
-    std::string r1_temp(r1);
-    for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+    if (enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
     {
-      switch (*x)
+      float sum=0.0, sum2=0.0;
+      std::string s1(fa1.seq());
+      std::string s2(fa2.seq());
+      if (seed_==0)
       {
-        case '(': case ')': *x='.'; break;
-        case '[': *x='('; break;
-        default: break;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	seed_ = (unsigned long) tv.tv_sec;
       }
-    }
-
-    std::string r2_temp(r2);
-    for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
-    {
-      switch (*x)
+      srandom(seed_);
+      uShuffle::set_randfunc((uShuffle::randfunc_t) random);
+      for (uint i=0; i!=num_shuffling_; ++i)
       {
-        case '(': case ')': *x='.'; break;
-        case ']': *x=')'; break;
-        default: break;
-      }
-    }
-
-    std::string rr(r1_temp+"..."+r2_temp);
-    //std::cout << ss << std::endl << rr << std::endl;
-#ifdef HAVE_VIENNA20
-    float e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
-#else
-    Vienna::eos_debug = -1;
-    float e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+        if (enable_zscore_==1 || enable_zscore_==12)
+          uShuffle::shuffle(fa1.seq().c_str(), &s1[0], fa1.seq().size(), 2);
+        if (enable_zscore_==2 || enable_zscore_==12)
+          uShuffle::shuffle(fa2.seq().c_str(), &s2[0], fa2.seq().size(), 2);
+        solve(s1, s2, r1, r2);
+        float ee1, ee2, ee3;
+        calculate_energy(s1, s2, r1, r2, ee1, ee2, ee3);
+        float ee=ee1+ee2+ee3;
+#if 0
+        std::cout << s1 << std::endl << r1 << std::endl
+                  << s2 << std::endl << r2 << std::endl;
+        std::cout << ee1 << " + " << ee2 << " + " << ee3 << " = " << ee << std::endl;
 #endif
-
-    std::cout << "(E: S1=" << e1 << ", "
-              << "S2=" << e2 << ", "
-              << "H=" << e3 << ", "
-              << "JS=" << e1+e2+e3 << ")" << std::endl;
+        sum += ee;
+        sum2 += ee*ee;
+      }
+      float m=sum/num_shuffling_;
+      float v=sum2/num_shuffling_-m*m;
+      if (v<0.0) v=0.0;
+#if 0
+      std::cout << m << " " << v << std::endl;
+#endif
+      std::cout << "z-score: " << (e1+e2+e3-m)/sqrt(v) << std::endl;
+    }
   }
 
   return 0;
