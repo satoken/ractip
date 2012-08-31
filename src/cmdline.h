@@ -88,10 +88,6 @@ struct gengetopt_args_info
   char * rip_arg;	/**< @brief Import posterior probabilities from the result of RIP.  */
   char * rip_orig;	/**< @brief Import posterior probabilities from the result of RIP original value given at command line.  */
   const char *rip_help; /**< @brief Import posterior probabilities from the result of RIP help description.  */
-  int pf_duplex_flag;	/**< @brief Use pf_duplex routine (default=off).  */
-  const char *pf_duplex_help; /**< @brief Use pf_duplex routine help description.  */
-  int allow_concat_flag;	/**< @brief Allow concatenation of accessible regions (default=off).  */
-  const char *allow_concat_help; /**< @brief Allow concatenation of accessible regions help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int full_help_given ;	/**< @brief Whether full-help was given.  */
@@ -112,8 +108,6 @@ struct gengetopt_args_info
   unsigned int param_file_given ;	/**< @brief Whether param-file was given.  */
   unsigned int no_pk_given ;	/**< @brief Whether no-pk was given.  */
   unsigned int rip_given ;	/**< @brief Whether rip was given.  */
-  unsigned int pf_duplex_given ;	/**< @brief Whether pf-duplex was given.  */
-  unsigned int allow_concat_given ;	/**< @brief Whether allow-concat was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */
   unsigned inputs_num ; /**< @brief unamed options number */

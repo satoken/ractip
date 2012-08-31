@@ -51,8 +51,6 @@ const char *gengetopt_args_info_full_help[] = {
   "  -P, --param-file=FILENAME  Read the energy parameter file for Vienna RNA \n                               package",
   "  -p, --no-pk                do not use the constraints for interenal \n                               pseudoknots  (default=off)",
   "  -r, --rip=FILENAME         Import posterior probabilities from the result of \n                               RIP",
-  "      --pf-duplex            Use pf_duplex routine  (default=off)",
-  "      --allow-concat         Allow concatenation of accessible regions  \n                               (default=off)",
     0
 };
 
@@ -124,8 +122,6 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->param_file_given = 0 ;
   args_info->no_pk_given = 0 ;
   args_info->rip_given = 0 ;
-  args_info->pf_duplex_given = 0 ;
-  args_info->allow_concat_given = 0 ;
 }
 
 static
@@ -160,8 +156,6 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->no_pk_flag = 0;
   args_info->rip_arg = NULL;
   args_info->rip_orig = NULL;
-  args_info->pf_duplex_flag = 0;
-  args_info->allow_concat_flag = 0;
   
 }
 
@@ -189,8 +183,6 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->param_file_help = gengetopt_args_info_full_help[16] ;
   args_info->no_pk_help = gengetopt_args_info_full_help[17] ;
   args_info->rip_help = gengetopt_args_info_full_help[18] ;
-  args_info->pf_duplex_help = gengetopt_args_info_full_help[19] ;
-  args_info->allow_concat_help = gengetopt_args_info_full_help[20] ;
   
 }
 
@@ -370,10 +362,6 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "no-pk", 0, 0 );
   if (args_info->rip_given)
     write_into_file(outfile, "rip", args_info->rip_orig, 0);
-  if (args_info->pf_duplex_given)
-    write_into_file(outfile, "pf-duplex", 0, 0 );
-  if (args_info->allow_concat_given)
-    write_into_file(outfile, "allow-concat", 0, 0 );
   
 
   i = EXIT_SUCCESS;
@@ -651,8 +639,6 @@ cmdline_parser_internal (
         { "param-file",	1, NULL, 'P' },
         { "no-pk",	0, NULL, 'p' },
         { "rip",	1, NULL, 'r' },
-        { "pf-duplex",	0, NULL, 0 },
-        { "allow-concat",	0, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -870,30 +856,6 @@ cmdline_parser_internal (
                 &(local_args_info.seed_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "seed", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Use pf_duplex routine.  */
-          else if (strcmp (long_options[option_index].name, "pf-duplex") == 0)
-          {
-          
-          
-            if (update_arg((void *)&(args_info->pf_duplex_flag), 0, &(args_info->pf_duplex_given),
-                &(local_args_info.pf_duplex_given), optarg, 0, 0, ARG_FLAG,
-                check_ambiguity, override, 1, 0, "pf-duplex", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Allow concatenation of accessible regions.  */
-          else if (strcmp (long_options[option_index].name, "allow-concat") == 0)
-          {
-          
-          
-            if (update_arg((void *)&(args_info->allow_concat_flag), 0, &(args_info->allow_concat_given),
-                &(local_args_info.allow_concat_given), optarg, 0, 0, ARG_FLAG,
-                check_ambiguity, override, 1, 0, "allow-concat", '-',
                 additional_error))
               goto failure;
           

@@ -91,10 +91,11 @@ public:
       seed_(0),
       in_pk_(true),
       use_contrafold_(true),
-      use_pf_duplex_(false),
+      use_pf_duplex_(true),
       stacking_constraints_(true),
       show_energy_(false),
-      allow_concat_(false),
+      allow_concat_(true),
+      run_with_modena_(false),
       n_th_(1),
       rip_file_(),
       param_file_(),
@@ -109,8 +110,8 @@ public:
 
   RactIP& parse_options(int& argc, char**& argv);
   int run();
-  void solve(const std::string& s1, const std::string& s2,
-             std::string& r1, std::string& r2);
+  float solve(const std::string& s1, const std::string& s2,
+              std::string& r1, std::string& r2);
 
   static void calculate_energy(const std::string s1, const std::string& s2,
                                const std::string r1, const std::string& r2,
@@ -144,6 +145,7 @@ private:
   bool stacking_constraints_;
   bool show_energy_;
   bool allow_concat_;
+  bool run_with_modena_;
   int n_th_;                   // the number of threads
   std::string rip_file_;
   std::string param_file_;
@@ -378,7 +380,7 @@ load_from_rip(const char* filename,
   }
 }
 
-void
+float
 RactIP::
 solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
 {
@@ -753,7 +755,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
 
   // execute optimization
-  ip.solve();
+  float ea = ip.solve();
 
   // build the resultant structure
   r1.resize(s1.size());
@@ -815,6 +817,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   std::cout << std::endl;
 #endif
+
+  return ea;
 }
 
 RactIP&
@@ -836,9 +840,10 @@ parse_options(int& argc, char**& argv)
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.mccaskill_flag==0;
-  use_pf_duplex_ = args_info.pf_duplex_flag;
+  //use_pf_duplex_ = args_info.pf_duplex_flag;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
-  allow_concat_ = args_info.allow_concat_flag;
+  //allow_concat_ = args_info.allow_concat_flag;
+  //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;
   if (args_info.rip_given) rip_file_ = args_info.rip_arg;
   show_energy_ = args_info.show_energy_flag==1;
@@ -943,7 +948,7 @@ run()
 
   // predict the interation
   std::string r1, r2;
-  solve(fa1.seq(), fa2.seq(), r1, r2);
+  float ea = solve(fa1.seq(), fa2.seq(), r1, r2);
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
