@@ -48,6 +48,10 @@ extern "C" {
 #include <ViennaRNA/part_func_up.h>
 #include <ViennaRNA/part_func_co.h>
 #include <ViennaRNA/utils.h>
+#ifndef HAVE_VIENNA20
+#include <ViennaRNA/PS_dot.h>
+  extern int eos_debug;
+#endif
 #include "pf_duplex.h"
   extern void read_parameter_file(const char fname[]);
 };
@@ -58,7 +62,6 @@ extern "C" {
 #include "ushuffle.h"
 };
 };
-
 
 extern "C" {
 #include "boltzmann_param.h"
