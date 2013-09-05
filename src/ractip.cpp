@@ -87,6 +87,8 @@ public:
       th_hy_(0.2),
       th_ss_(0.5),
       th_ac_(0.0),
+      acc_max_(false),
+      acc_max_ss_(false),
       max_w_(0),
       min_w_(0),
       enable_zscore_(0),
@@ -97,7 +99,6 @@ public:
       use_pf_duplex_(true),
       stacking_constraints_(true),
       show_energy_(false),
-      allow_concat_(true),
       run_with_modena_(false),
       n_th_(1),
       rip_file_(),
@@ -115,8 +116,8 @@ public:
   int run();
   float solve(const std::string& s1, const std::string& s2,
               std::string& r1, std::string& r2);
-  float solve2(const std::string& s1, const std::string& s2,
-               std::string& r1, std::string& r2);
+  float solve_acc(const std::string& s1, const std::string& s2,
+                  std::string& r1, std::string& r2);
   float solve_ss(const std::string& s, const VF& bp, const VI& offset,
                  const std::vector<bool>& u, std::string& r);
 
@@ -141,6 +142,8 @@ private:
   float th_hy_;                // threshold for the hybridization probability
   float th_ss_;                // threshold for the base-pairing probability
   float th_ac_;                // threshold for the accessible probability
+  bool acc_max_;               // optimize for accessibility instead of internal secondary structures
+  bool acc_max_ss_;            // additional prediction of interanal secondary structures
   int max_w_;                  // maximum length of accessible regions
   int min_w_;                  // mimimum length of accessible regions
   int enable_zscore_;          // flag for calculating z-score
@@ -151,7 +154,6 @@ private:
   bool use_pf_duplex_;
   bool stacking_constraints_;
   bool show_energy_;
-  bool allow_concat_;
   bool run_with_modena_;
   int n_th_;                   // the number of threads
   std::string rip_file_;
@@ -527,20 +529,6 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-#if 0
-  if (enable_accessibility /*&& !allow_concat_*/)
-  {
-    // accessible regions v_pq are not overlapped with each other
-    for (uint i=0; i!=v.size(); ++i)
-      for (uint j=i+1; j!=v.size(); ++j)
-        if (vv[i].second+1==vv[j].first || vv[j].second+1==vv[i].first)
-        {
-          int row = ip.make_constraint(IP::UP, 0, 1);
-          ip.add_constraint(row, v[i], 1);
-          ip.add_constraint(row, v[j], 1);
-        }
-  }
-#else
   if (enable_accessibility)
   {
     VI row(s1.size(), -1);
@@ -550,15 +538,10 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       if (vv[j].first>0)
         ip.add_constraint(row[vv[j].first-1], v[j], 1);
-#if 1
       for (uint i=vv[j].first; i<=vv[j].second; ++i)
         ip.add_constraint(row[i], v[j], 1);
-#else
-      ip.add_constraint(row[vv[j].second], v[j], 1);
-#endif
     }
   }
-#endif
 
   if (!enable_accessibility)
   {
@@ -601,20 +584,6 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-#if 0
-  if (enable_accessibility /*&& !allow_concat_*/)
-  {
-    // accessible regions w_pq are not overlapped with each other
-    for (uint i=0; i!=w.size(); ++i)
-      for (uint j=i+1; j!=w.size(); ++j)
-        if (ww[i].second+1==ww[j].first || ww[j].second+1==ww[i].first)
-        {
-          int row = ip.make_constraint(IP::UP, 0, 1);
-          ip.add_constraint(row, w[i], 1);
-          ip.add_constraint(row, w[j], 1);
-        }
-  }
-#else
   if (enable_accessibility)
   {
     VI row(s2.size(), -1);
@@ -624,15 +593,10 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       if (ww[j].first>0)
         ip.add_constraint(row[ww[j].first-1], w[j], 1);
-#if 1
       for (uint i=ww[j].first; i<=ww[j].second; ++i)
         ip.add_constraint(row[i], w[j], 1);
-#else
-      ip.add_constraint(row[ww[j].second], w[j], 1);
-#endif
     }
   }
-#endif
 
   if (enable_accessibility)
   {
@@ -847,7 +811,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-#if 1
+#if 0
   std::cout << "v: ";
   for (uint i=0; i!=v.size(); ++i)
   {
@@ -872,7 +836,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
 
 float
 RactIP::
-solve2(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
+solve_acc(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
 {
   IP ip(IP::MAX, n_th_);
   VF bp1, bp2;
@@ -963,20 +927,6 @@ solve2(const std::string& s1, const std::string& s2, std::string& r1, std::strin
         ip.add_constraint(row_ac[i], v[j], 1);
   }
 
-#if 0
-  if (enable_accessibility)
-  {
-    // accessible regions v_pq are not overlapped with each other
-    for (uint i=0; i!=v.size(); ++i)
-      for (uint j=i+1; j!=v.size(); ++j)
-        if (vv[i].second+1==vv[j].first || vv[j].second+1==vv[i].first)
-        {
-          int row = ip.make_constraint(IP::UP, 0, 1);
-          ip.add_constraint(row, v[i], 1);
-          ip.add_constraint(row, v[j], 1);
-        }
-  }
-#else
   if (enable_accessibility)
   {
     VI row(s1.size(), -1);
@@ -986,15 +936,10 @@ solve2(const std::string& s1, const std::string& s2, std::string& r1, std::strin
     {
       if (vv[j].first>0)
         ip.add_constraint(row[vv[j].first-1], v[j], 1);
-#if 1
       for (uint i=vv[j].first; i<=vv[j].second; ++i)
         ip.add_constraint(row[i], v[j], 1);
-#else
-      ip.add_constraint(row[vv[j].second], v[j], 1);
-#endif
     }
   }
-#endif
 
   for (uint i=0; i!=s2.size(); ++i)
   {
@@ -1019,20 +964,6 @@ solve2(const std::string& s1, const std::string& s2, std::string& r1, std::strin
         ip.add_constraint(row_ac[i], w[j], 1);
   }
 
-#if 0
-  if (enable_accessibility)
-  {
-    // accessible regions w_pq are not overlapped with each other
-    for (uint i=0; i!=w.size(); ++i)
-      for (uint j=i+1; j!=w.size(); ++j)
-        if (ww[i].second+1==ww[j].first || ww[j].second+1==ww[i].first)
-        {
-          int row = ip.make_constraint(IP::UP, 0, 1);
-          ip.add_constraint(row, w[i], 1);
-          ip.add_constraint(row, w[j], 1);
-        }
-  }
-#else
   if (enable_accessibility)
   {
     VI row(s2.size(), -1);
@@ -1042,15 +973,10 @@ solve2(const std::string& s1, const std::string& s2, std::string& r1, std::strin
     {
       if (ww[j].first>0)
         ip.add_constraint(row[ww[j].first-1], w[j], 1);
-#if 1
       for (uint i=ww[j].first; i<=ww[j].second; ++i)
         ip.add_constraint(row[i], w[j], 1);
-#else
-      ip.add_constraint(row[ww[j].second], w[j], 1);
-#endif
     }
   }
-#endif
 
   if (enable_accessibility)
   {
@@ -1150,16 +1076,18 @@ solve2(const std::string& s1, const std::string& s2, std::string& r1, std::strin
     if (ip.get_value(v[j])>0.5)
       for (uint i=vv[j].first; i<=vv[j].second; ++i)
         u1[i]=false;
-  ea += solve_ss(s1, bp1, offset1, u1, r1);
+  if (acc_max_ss_)
+    ea += solve_ss(s1, bp1, offset1, u1, r1);
 
   std::vector<bool> u2(s2.size(), true);
   for (uint j=0; j!=w.size(); ++j)
     if (ip.get_value(w[j])>0.5)
       for (uint i=ww[j].first; i<=ww[j].second; ++i)
         u2[i]=false;
-  ea += solve_ss(s2, bp2, offset2, u2, r2);
+  if (acc_max_ss_)
+    ea += solve_ss(s2, bp2, offset2, u2, r2);
 
-#if 1
+#if 0
   std::cout << "v: ";
   for (uint i=0; i!=v.size(); ++i)
   {
@@ -1297,6 +1225,8 @@ parse_options(int& argc, char**& argv)
   th_ss_ = args_info.fold_th_arg;
   th_hy_ = args_info.hybridize_th_arg;
   th_ac_ = args_info.acc_th_arg;
+  acc_max_ = args_info.acc_max_flag==1;
+  acc_max_ss_ = args_info.acc_max_ss_flag==1;
   max_w_ = args_info.max_w_arg;
   min_w_ = args_info.min_w_arg;
   enable_zscore_ = args_info.zscore_arg;
@@ -1306,7 +1236,6 @@ parse_options(int& argc, char**& argv)
   use_contrafold_ = args_info.mccaskill_flag==0;
   //use_pf_duplex_ = args_info.pf_duplex_flag;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
-  //allow_concat_ = args_info.allow_concat_flag;
   //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;
   if (args_info.rip_given) rip_file_ = args_info.rip_arg;
@@ -1412,7 +1341,9 @@ run()
 
   // predict the interation
   std::string r1, r2;
-  float ea = solve(fa1.seq(), fa2.seq(), r1, r2);
+  float ea = acc_max_ ?
+    solve_acc(fa1.seq(), fa2.seq(), r1, r2) :
+    solve(fa1.seq(), fa2.seq(), r1, r2) ;
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
