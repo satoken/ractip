@@ -89,6 +89,7 @@ public:
       th_ac_(0.0),
       acc_max_(false),
       acc_max_ss_(false),
+      acc_num_(0),
       max_w_(0),
       min_w_(0),
       enable_zscore_(0),
@@ -144,6 +145,7 @@ private:
   float th_ac_;                // threshold for the accessible probability
   bool acc_max_;               // optimize for accessibility instead of internal secondary structures
   bool acc_max_ss_;            // additional prediction of interanal secondary structures
+  int acc_num_;                // the number of accessible regions
   int max_w_;                  // maximum length of accessible regions
   int min_w_;                  // mimimum length of accessible regions
   int enable_zscore_;          // flag for calculating z-score
@@ -451,7 +453,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
 
   VVI z(s1.size(), VI(s2.size(), -1));
-  std::vector< std::vector<int> > zz(s1.size());
+  VVI zz(s1.size());
   for (uint i=0; i!=s1.size(); ++i)
   {
     for (uint j=0; j!=s2.size(); ++j)
@@ -465,17 +467,44 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-  VI v, w;
-  std::vector< std::pair<uint,uint> > vv, ww;
+  VI v, s;
+  std::vector< std::pair<uint,uint> > vv, ss;
   if (enable_accessibility)
   {
+    VI st, en;
+    st.push_back(s1.size()-1);
+    en.push_back(0);
+
     for (uint i=0; i!=up1.size(); ++i)
       for (uint j=min_w_-1; j<up1[i].size(); ++j)
         if (up1[i][j]>th_ac_)
         {
           v.push_back(ip.make_variable(beta_*(up1[i][j]-th_ac_)));
           vv.push_back(std::make_pair(i,i+j));
+          st.push_back(i);
+          en.push_back(i+j);
         }
+
+    std::sort(st.begin(), st.end());
+    st.erase(std::unique(st.begin(), st.end()), st.end());
+    std::sort(en.begin(), en.end());
+    en.erase(std::unique(en.begin(), en.end()), en.end());
+    for (uint i=0; i!=st.size(); ++i)
+      for (uint j=0; j!=en.size(); ++j)
+        if (en[j]<st[i] && st[i]-en[j]>5)
+        {
+          s.push_back(ip.make_variable(0.0));
+          ss.push_back(std::make_pair(en[j], st[i]));
+        }
+  }
+
+  VI w, t;
+  std::vector< std::pair<uint,uint> > ww, tt;
+  if (enable_accessibility)
+  {
+    VI st, en;
+    st.push_back(s2.size()-1);
+    en.push_back(0);
 
     for (uint i=0; i!=up2.size(); ++i)
       for (uint j=min_w_-1; j<up2[i].size(); ++j)
@@ -483,23 +512,112 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         {
           w.push_back(ip.make_variable(beta_*(up2[i][j]-th_ac_)));
           ww.push_back(std::make_pair(i,i+j));
+          st.push_back(i);
+          en.push_back(i+j);
+        }
+
+    std::sort(st.begin(), st.end());
+    st.erase(std::unique(st.begin(), st.end()), st.end());
+    std::sort(en.begin(), en.end());
+    en.erase(std::unique(en.begin(), en.end()), en.end());
+    for (uint i=0; i!=st.size(); ++i)
+      for (uint j=0; j!=en.size(); ++j)
+        if (en[j]<st[i] && st[i]-en[j]>5)
+        {
+          t.push_back(ip.make_variable(0.0));
+          tt.push_back(std::make_pair(en[j], st[i]));
         }
   }
 
+  VI x_un(s1.size(), -1);
+  VI z_un1(s1.size(), -1);
+  VI s_st(s1.size(), -1);
+  VI s_en(s1.size(), -1);
+  VI v_st(s1.size(), -1);
+  VI v_en(s1.size(), -1);
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    x_un[i] = ip.make_variable(0.0);
+    z_un1[i] = ip.make_variable(0.0);
+    s_st[i] = ip.make_variable(0.0);
+    s_en[i] = ip.make_variable(0.0);
+    v_st[i] = ip.make_variable(0.0);
+    v_en[i] = ip.make_variable(0.0);
+  }
+
+  VI y_un(s2.size(), -1);
+  VI z_un2(s2.size(), -1);
+  VI t_st(s2.size(), -1);
+  VI t_en(s2.size(), -1);
+  VI w_st(s2.size(), -1);
+  VI w_en(s2.size(), -1);
+  for (uint i=0; i!=s2.size(); ++i)
+  {
+    y_un[i] = ip.make_variable(0.0);
+    z_un2[i] = ip.make_variable(0.0);
+    t_st[i] = ip.make_variable(0.0);
+    t_en[i] = ip.make_variable(0.0);
+    w_st[i] = ip.make_variable(0.0);
+    w_en[i] = ip.make_variable(0.0);
+  }
+
   ip.update();
+
+  for (uint i=0; i!=s1.size(); ++i)
+  {
+    int row = ip.make_constraint(IP::FX, 1, 1);
+    ip.add_constraint(row, x_un[i], 1);
+    for (uint j=0; j!=s1.size(); ++j)
+      if (x[i][j]>=0)
+        ip.add_constraint(row, x[i][j], 1);
+
+    row = ip.make_constraint(IP::FX, 1, 1);
+    ip.add_constraint(row, z_un1[i], 1);
+    for (uint j=0; j!=s2.size(); ++j)
+      if (z[i][j]>=0)
+        ip.add_constraint(row, z[i][j], 1);
+  }
+
+  if (enable_accessibility)
+  {
+    VI row_v_st(s1.size(), -1);
+    VI row_v_en(s1.size(), -1);
+    VI row_s_st(s1.size(), -1);
+    VI row_s_en(s1.size(), -1);
+    for (uint i=0; i!=s1.size(); ++i)
+    {
+      row_v_st[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_v_st[i], v_st[i], -1);
+
+      row_v_en[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_v_en[i], v_en[i], -1);
+
+      row_s_st[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_s_st[i], s_st[i], -1);
+
+      row_s_en[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_s_en[i], s_en[i], -1);
+    }
+    for (uint i=0; i!=v.size(); ++i)
+    {
+      ip.add_constraint(row_v_st[vv[i].first], v[i], 1);
+      ip.add_constraint(row_v_en[vv[i].second], v[i], 1);
+    }
+    for (uint i=0; i!=s.size(); ++i)
+    {
+      ip.add_constraint(row_s_st[ss[i].first], s[i], 1);
+      ip.add_constraint(row_s_en[ss[i].second], s[i], 1);
+    }
+  }
 
   if (!enable_accessibility)
   {
     // each a_i is paired with at most one base
     for (uint i=0; i!=s1.size(); ++i)
     {
-      int row = ip.make_constraint(IP::UP, 0, 1);
-      for (uint j=0; j<s1.size(); ++j)
-        if (x[i][j]>=0)
-          ip.add_constraint(row, x[i][j], 1);
-      for (uint j=0; j!=s2.size(); ++j)
-        if (z[i][j]>=0)
-          ip.add_constraint(row, z[i][j], 1);
+      int row = ip.make_constraint(IP::LO, 1, 0);
+      ip.add_constraint(row, x_un[i], 1);
+      ip.add_constraint(row, z_un1[i], 1);
     }
   }
   else
@@ -510,14 +628,11 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     VI row_ac(s1.size(), 0);
     for (uint i=0; i!=s1.size(); ++i)
     {
-      row[i] = ip.make_constraint(IP::UP, 0, 1);
-      row_ac[i] = ip.make_constraint(IP::LO, 0, 0);
-      for (uint j=0; j!=s1.size(); ++j)
-        if (x[i][j]>=0)
-          ip.add_constraint(row[i], x[i][j], 1);
-      for (uint j=0; j!=s2.size(); ++j)
-        if (z[i][j]>=0)
-          ip.add_constraint(row_ac[i], z[i][j], -1);
+      row[i] = ip.make_constraint(IP::UP, 0, 0);
+      ip.add_constraint(row[i], x_un[i], -1);
+
+      row_ac[i] = ip.make_constraint(IP::LO, 1, 0);
+      ip.add_constraint(row_ac[i], z_un1[i], 1);
     }
     for (uint j=0; j!=v.size(); ++j)
     {
@@ -531,6 +646,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
 
   if (enable_accessibility)
   {
+#if 0
     VI row(s1.size(), -1);
     for (uint i=0; i!=s1.size(); ++i)
       row[i] = ip.make_constraint(IP::UP, 0, 1);
@@ -541,6 +657,83 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       for (uint i=vv[j].first; i<=vv[j].second; ++i)
         ip.add_constraint(row[i], v[j], 1);
     }
+#else
+    VI row(s1.size(), -1);
+    for (uint i=0; i!=s1.size(); ++i)
+      row[i] = ip.make_constraint(IP::UP, 0, 1);
+    for (uint j=0; j!=v.size(); ++j)
+      for (uint i=vv[j].first; i<=vv[j].second; ++i)
+        ip.add_constraint(row[i], v[j], 1);
+    for (uint j=0; j!=s.size(); ++j)
+      for (uint i=ss[j].first; i<=ss[j].second; ++i)
+        ip.add_constraint(row[i], s[j], 1);
+    for (uint i=1; i!=s1.size(); ++i)
+    {
+      int row = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row, v_en[i-1], 1);
+      ip.add_constraint(row, s_st[i], -1);
+
+      row = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row, s_en[i-1], 1);
+      ip.add_constraint(row, v_st[i], -1);
+
+      row = ip.make_constraint(IP::UP, 0, 1);
+      ip.add_constraint(row, s_en[i-1], 1);
+      ip.add_constraint(row, s_st[i], 1);
+
+      row = ip.make_constraint(IP::UP, 0, 1);
+      ip.add_constraint(row, v_en[i-1], 1);
+      ip.add_constraint(row, v_st[i], 1);
+    }
+#endif
+  }
+
+
+  for (uint i=0; i!=s2.size(); ++i)
+  {
+    int row = ip.make_constraint(IP::FX, 1, 1);
+    ip.add_constraint(row, y_un[i], 1);
+    for (uint j=0; j!=s2.size(); ++j)
+      if (y[i][j]>=0)
+        ip.add_constraint(row, y[i][j], 1);
+
+    row = ip.make_constraint(IP::FX, 1, 1);
+    ip.add_constraint(row, z_un2[i], 1);
+    for (uint j=0; j!=s1.size(); ++j)
+      if (z[j][i]>=0)
+        ip.add_constraint(row, z[j][i], 1);
+  }
+
+  if (enable_accessibility)
+  {
+    VI row_w_st(s2.size(), -1);
+    VI row_w_en(s2.size(), -1);
+    VI row_t_st(s2.size(), -1);
+    VI row_t_en(s2.size(), -1);
+    for (uint i=0; i!=s2.size(); ++i)
+    {
+      row_w_st[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_w_st[i], w_st[i], -1);
+
+      row_w_en[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_w_en[i], w_en[i], -1);
+
+      row_t_st[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_t_st[i], t_st[i], -1);
+
+      row_t_en[i] = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row_t_en[i], t_en[i], -1);
+    }
+    for (uint i=0; i!=w.size(); ++i)
+    {
+      ip.add_constraint(row_w_st[ww[i].first], w[i], 1);
+      ip.add_constraint(row_w_en[ww[i].second], w[i], 1);
+    }
+    for (uint i=0; i!=t.size(); ++i)
+    {
+      ip.add_constraint(row_t_st[tt[i].first], t[i], 1);
+      ip.add_constraint(row_t_en[tt[i].second], t[i], 1);
+    }
   }
 
   if (!enable_accessibility)
@@ -548,13 +741,9 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     // each b_i is paired with at most one
     for (uint i=0; i!=s2.size(); ++i)
     {
-      int row = ip.make_constraint(IP::UP, 0, 1);
-      for (uint j=0; j<s2.size(); ++j)
-        if (y[i][j]>=0)
-          ip.add_constraint(row, y[i][j], 1);
-      for (uint j=0; j!=s1.size(); ++j)
-        if (z[j][i]>=0)
-          ip.add_constraint(row, z[j][i], 1);
+      int row = ip.make_constraint(IP::LO, 1, 0);
+      ip.add_constraint(row, y_un[i], 1);
+      ip.add_constraint(row, z_un2[i], 1);
     }
   }
   else
@@ -565,14 +754,11 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     VI row_ac(s2.size(), 0);
     for (uint i=0; i!=s2.size(); ++i)
     {
-      row[i] = ip.make_constraint(IP::UP, 0, 1);
-      row_ac[i] = ip.make_constraint(IP::LO, 0, 0);
-      for (uint j=0; j!=s2.size(); ++j)
-        if (y[i][j]>=0)
-          ip.add_constraint(row[i], y[i][j], 1);
-      for (uint j=0; j!=s1.size(); ++j)
-        if (z[j][i]>=0)
-          ip.add_constraint(row_ac[i], z[j][i], -1);
+      row[i] = ip.make_constraint(IP::UP, 0, 0);
+      ip.add_constraint(row[i], y_un[i], -1);
+
+      row_ac[i] = ip.make_constraint(IP::LO, 1, 0);
+      ip.add_constraint(row_ac[i], z_un2[i], 1);
     }
     for (uint j=0; j!=w.size(); ++j)
     {
@@ -586,6 +772,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
 
   if (enable_accessibility)
   {
+#if 0
     VI row(s2.size(), -1);
     for (uint i=0; i!=s2.size(); ++i)
       row[i] = ip.make_constraint(IP::UP, 0, 1);
@@ -596,70 +783,158 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       for (uint i=ww[j].first; i<=ww[j].second; ++i)
         ip.add_constraint(row[i], w[j], 1);
     }
+#else
+    VI row(s2.size(), -1);
+    for (uint i=0; i!=s2.size(); ++i)
+      row[i] = ip.make_constraint(IP::UP, 0, 1);
+    for (uint j=0; j!=w.size(); ++j)
+      for (uint i=ww[j].first; i<=ww[j].second; ++i)
+        ip.add_constraint(row[i], w[j], 1);
+    for (uint j=0; j!=t.size(); ++j)
+      for (uint i=tt[j].first; i<=tt[j].second; ++i)
+        ip.add_constraint(row[i], t[j], 1);
+    for (uint i=1; i!=s2.size(); ++i)
+    {
+      int row = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row, w_en[i-1], 1);
+      ip.add_constraint(row, t_st[i], -1);
+
+      row = ip.make_constraint(IP::FX, 0, 0);
+      ip.add_constraint(row, t_en[i-1], 1);
+      ip.add_constraint(row, w_st[i], -1);
+
+      row = ip.make_constraint(IP::UP, 0, 1);
+      ip.add_constraint(row, t_en[i-1], 1);
+      ip.add_constraint(row, t_st[i], 1);
+
+      row = ip.make_constraint(IP::UP, 0, 1);
+      ip.add_constraint(row, w_en[i-1], 1);
+      ip.add_constraint(row, w_st[i], 1);
+    }
+#endif
   }
+
 
   if (enable_accessibility)
   {
     // each accessible resion v_pq contains at least one z_ij
     for (uint j=0; j!=v.size(); ++j)
     {
-      int row = ip.make_constraint(IP::LO, 0, 0);
-      ip.add_constraint(row, v[j], -1);
+      int row = ip.make_constraint(IP::UP, 0, vv[j].second-vv[j].first+1);
+      ip.add_constraint(row, v[j], 1);
       for (uint i=vv[j].first; i<=vv[j].second; ++i)
-        for (uint k=0; k!=s2.size(); ++k)
-          if (z[i][k]>=0)
-            ip.add_constraint(row, z[i][k], 1);
+        ip.add_constraint(row, z_un1[i], 1);
     }
+
+#if 0
+    for (uint j=0; j!=s.size(); ++j)
+    {
+      if (ss[j].first!=0 && ss[j].second!=s1.size()-1)
+      {
+        int row = ip.make_constraint(IP::UP, 0, ss[j].second-ss[j].first+1);
+        ip.add_constraint(row, s[j], 1);
+        for (uint i=ss[j].first; i<=ss[j].second; ++i)
+          ip.add_constraint(row, x_un[i], 1);
+      }
+    }
+#endif
 
     // each accessible resion w_pq contains at least one z_ij
     for (uint j=0; j!=w.size(); ++j)
     {
-      int row = ip.make_constraint(IP::LO, 0, 0);
-      ip.add_constraint(row, w[j], -1);
+      int row = ip.make_constraint(IP::UP, 0, ww[j].second-ww[j].first+1);
+      ip.add_constraint(row, w[j], 1);
       for (uint i=ww[j].first; i<=ww[j].second; ++i)
-        for (uint k=0; k!=s1.size(); ++k)
-          if (z[k][i]>=0)
-            ip.add_constraint(row, z[k][i], 1);
+        ip.add_constraint(row, z_un2[i], 1);
+    }
+
+#if 0
+    for (uint j=0; j!=t.size(); ++j)
+    {
+      if (tt[j].first!=0 && tt[j].second!=s2.size()-1)
+      {
+        int row = ip.make_constraint(IP::UP, 0, tt[j].second-tt[j].first+1);
+        ip.add_constraint(row, t[j], 1);
+        for (uint i=tt[j].first; i<=tt[j].second; ++i)
+          ip.add_constraint(row, y_un[i], 1);
+      }
+    }
+#endif
+
+#if 1
+    int row = ip.make_constraint(IP::FX, 0, 0);
+    for (uint i=0; i!=v.size(); ++i)
+      ip.add_constraint(row, v[i], 1);
+    for (uint i=0; i!=w.size(); ++i)
+      ip.add_constraint(row, w[i], -1);
+#endif
+    if (acc_num_>0)
+    {
+      int row = ip.make_constraint(IP::UP, 0, acc_num_);
+      for (uint i=0; i!=v.size(); ++i)
+        ip.add_constraint(row, v[i], 1);
+
+      row = ip.make_constraint(IP::UP, 0, acc_num_);
+      for (uint i=0; i!=w.size(); ++i)
+        ip.add_constraint(row, w[i], 1);
     }
   }
 
   // disallow external pseudoknots
   for (uint i=0; i<zz.size(); ++i)
     for (uint k=i+1; k<zz.size(); ++k)
-      for (uint p=0, j=zz[i][p]; p<zz[i].size(); ++p, j=zz[i][p])
-        for (uint q=0, l=zz[k][q]; q<zz[k].size(); ++q, l=zz[k][q])
+      for (uint p=0; p<zz[i].size(); ++p)
+      {
+        uint j=zz[i][p];
+        for (uint q=0; q<zz[k].size(); ++q)
+        {
+          uint l=zz[k][q];
           if (j<l)
           {
             int row = ip.make_constraint(IP::UP, 0, 1);
             ip.add_constraint(row, z[i][j], 1);
             ip.add_constraint(row, z[k][l], 1);
           }
+        }
+      }
 
   if (in_pk_)
   {
     // disallow internal pseudoknots in a
     for (uint i=0; i<xx.size(); ++i)
-      for (uint p=0, j=xx[i][p]; p<xx[i].size(); ++p, j=xx[i][p])
+      for (uint p=0; p<xx[i].size(); ++p)
+      {
+        uint j=xx[i][p];
         for (uint k=i+1; k<j; ++k)
-          for (uint q=0, l=xx[k][q]; q<xx[k].size(); ++q, l=xx[k][q])
+          for (uint q=0; q<xx[k].size(); ++q)
+          {
+            uint l=xx[k][q];
             if (j<l)
             {
               int row = ip.make_constraint(IP::UP, 0, 1);
               ip.add_constraint(row, x[i][j], 1);
               ip.add_constraint(row, x[k][l], 1);
             }
+          }
+      }
 
     // disallow internal pseudoknots in b
     for (uint i=0; i<yy.size(); ++i)
-      for (uint p=0, j=yy[i][p]; p<yy[i].size(); ++p, j=yy[i][p])
+      for (uint p=0; p<yy[i].size(); ++p)
+      {
+        uint j=yy[i][p];
         for (uint k=i+1; k<j; ++k)
-          for (uint q=0, l=yy[k][q]; q<yy[k].size(); ++q, l=yy[k][q])
+          for (uint q=0; q<yy[k].size(); ++q)
+          {
+            uint l=yy[k][q];
             if (j<l)
             {
               int row = ip.make_constraint(IP::UP, 0, 1);
               ip.add_constraint(row, y[i][j], 1);
               ip.add_constraint(row, y[k][l], 1);
             }
+          }
+      }
   }
 
   if (stacking_constraints_)
@@ -811,7 +1086,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
-#if 0
+#if 1
   std::cout << "v: ";
   for (uint i=0; i!=v.size(); ++i)
   {
@@ -821,12 +1096,28 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   }
   std::cout << std::endl;
 
+  std::cout << "s: ";
+  for (uint i=0; i!=s.size(); ++i)
+  {
+    if (ip.get_value(s[i])>0.5)
+      std::cout << "(" << ss[i].first << "," << ss[i].second << "), ";
+  }
+  std::cout << std::endl;
+
   std::cout << "w: ";
   for (uint i=0; i!=w.size(); ++i)
   {
     if (ip.get_value(w[i])>0.5)
       std::cout << "(" << ww[i].first << "," << ww[i].second << ","
                 << up2[ww[i].first][ww[i].second-ww[i].first]<< "), ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "t: ";
+  for (uint i=0; i!=t.size(); ++i)
+  {
+    if (ip.get_value(t[i])>0.5)
+      std::cout << "(" << tt[i].first << "," << tt[i].second << "), ";
   }
   std::cout << std::endl;
 #endif
@@ -1227,6 +1518,7 @@ parse_options(int& argc, char**& argv)
   th_ac_ = args_info.acc_th_arg;
   acc_max_ = args_info.acc_max_flag==1;
   acc_max_ss_ = args_info.acc_max_ss_flag==1;
+  acc_num_ = args_info.acc_num_arg;
   max_w_ = args_info.max_w_arg;
   min_w_ = args_info.min_w_arg;
   enable_zscore_ = args_info.zscore_arg;

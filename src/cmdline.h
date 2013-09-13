@@ -63,6 +63,9 @@ struct gengetopt_args_info
   const char *acc_max_help; /**< @brief optimize for accessibility instead of internal secondary structures help description.  */
   int acc_max_ss_flag;	/**< @brief additional prediction of interanal secondary structures (default=off).  */
   const char *acc_max_ss_help; /**< @brief additional prediction of interanal secondary structures help description.  */
+  int acc_num_arg;	/**< @brief the number of accessible regions (0=unlimited) (default='0').  */
+  char * acc_num_orig;	/**< @brief the number of accessible regions (0=unlimited) original value given at command line.  */
+  const char *acc_num_help; /**< @brief the number of accessible regions (0=unlimited) help description.  */
   int max_w_arg;	/**< @brief Maximum length of accessible regions (default='0').  */
   char * max_w_orig;	/**< @brief Maximum length of accessible regions original value given at command line.  */
   const char *max_w_help; /**< @brief Maximum length of accessible regions help description.  */
@@ -103,6 +106,7 @@ struct gengetopt_args_info
   unsigned int acc_th_given ;	/**< @brief Whether acc-th was given.  */
   unsigned int acc_max_given ;	/**< @brief Whether acc-max was given.  */
   unsigned int acc_max_ss_given ;	/**< @brief Whether acc-max-ss was given.  */
+  unsigned int acc_num_given ;	/**< @brief Whether acc-num was given.  */
   unsigned int max_w_given ;	/**< @brief Whether max-w was given.  */
   unsigned int min_w_given ;	/**< @brief Whether min-w was given.  */
   unsigned int zscore_given ;	/**< @brief Whether zscore was given.  */

@@ -44,6 +44,7 @@ const char *gengetopt_args_info_full_help[] = {
   "  -s, --acc-th=FLOAT         Threshold for accessible probabilities\n                               (default=`0.0')",
   "      --acc-max              optimize for accessibility instead of internal\n                               secondary structures  (default=off)",
   "      --acc-max-ss           additional prediction of interanal secondary\n                               structures  (default=off)",
+  "      --acc-num=INT          the number of accessible regions (0=unlimited)\n                               (default=`0')",
   "      --max-w=INT            Maximum length of accessible regions\n                               (default=`0')",
   "      --min-w=INT            Minimum length of accessible regions\n                               (default=`0')",
   "      --zscore=INT           Calculate z-score via dishuffling (0=no shuffling,\n                               1=1st seq only, 2=2nd seq only, or 12=both)\n                               (default=`0')",
@@ -80,11 +81,12 @@ init_help_array(void)
   gengetopt_args_info_help[16] = gengetopt_args_info_full_help[16];
   gengetopt_args_info_help[17] = gengetopt_args_info_full_help[17];
   gengetopt_args_info_help[18] = gengetopt_args_info_full_help[18];
-  gengetopt_args_info_help[19] = 0; 
+  gengetopt_args_info_help[19] = gengetopt_args_info_full_help[19];
+  gengetopt_args_info_help[20] = 0; 
   
 }
 
-const char *gengetopt_args_info_help[20];
+const char *gengetopt_args_info_help[21];
 
 typedef enum {ARG_NO
   , ARG_FLAG
@@ -119,6 +121,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->acc_th_given = 0 ;
   args_info->acc_max_given = 0 ;
   args_info->acc_max_ss_given = 0 ;
+  args_info->acc_num_given = 0 ;
   args_info->max_w_given = 0 ;
   args_info->min_w_given = 0 ;
   args_info->zscore_given = 0 ;
@@ -148,6 +151,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->acc_th_orig = NULL;
   args_info->acc_max_flag = 0;
   args_info->acc_max_ss_flag = 0;
+  args_info->acc_num_arg = 0;
+  args_info->acc_num_orig = NULL;
   args_info->max_w_arg = 0;
   args_info->max_w_orig = NULL;
   args_info->min_w_arg = 0;
@@ -184,17 +189,18 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->acc_th_help = gengetopt_args_info_full_help[7] ;
   args_info->acc_max_help = gengetopt_args_info_full_help[8] ;
   args_info->acc_max_ss_help = gengetopt_args_info_full_help[9] ;
-  args_info->max_w_help = gengetopt_args_info_full_help[10] ;
-  args_info->min_w_help = gengetopt_args_info_full_help[11] ;
-  args_info->zscore_help = gengetopt_args_info_full_help[12] ;
-  args_info->num_shuffling_help = gengetopt_args_info_full_help[13] ;
-  args_info->seed_help = gengetopt_args_info_full_help[14] ;
-  args_info->mccaskill_help = gengetopt_args_info_full_help[15] ;
-  args_info->allow_isolated_help = gengetopt_args_info_full_help[16] ;
-  args_info->show_energy_help = gengetopt_args_info_full_help[17] ;
-  args_info->param_file_help = gengetopt_args_info_full_help[18] ;
-  args_info->no_pk_help = gengetopt_args_info_full_help[19] ;
-  args_info->rip_help = gengetopt_args_info_full_help[20] ;
+  args_info->acc_num_help = gengetopt_args_info_full_help[10] ;
+  args_info->max_w_help = gengetopt_args_info_full_help[11] ;
+  args_info->min_w_help = gengetopt_args_info_full_help[12] ;
+  args_info->zscore_help = gengetopt_args_info_full_help[13] ;
+  args_info->num_shuffling_help = gengetopt_args_info_full_help[14] ;
+  args_info->seed_help = gengetopt_args_info_full_help[15] ;
+  args_info->mccaskill_help = gengetopt_args_info_full_help[16] ;
+  args_info->allow_isolated_help = gengetopt_args_info_full_help[17] ;
+  args_info->show_energy_help = gengetopt_args_info_full_help[18] ;
+  args_info->param_file_help = gengetopt_args_info_full_help[19] ;
+  args_info->no_pk_help = gengetopt_args_info_full_help[20] ;
+  args_info->rip_help = gengetopt_args_info_full_help[21] ;
   
 }
 
@@ -295,6 +301,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fold_th_orig));
   free_string_field (&(args_info->hybridize_th_orig));
   free_string_field (&(args_info->acc_th_orig));
+  free_string_field (&(args_info->acc_num_orig));
   free_string_field (&(args_info->max_w_orig));
   free_string_field (&(args_info->min_w_orig));
   free_string_field (&(args_info->zscore_orig));
@@ -359,6 +366,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "acc-max", 0, 0 );
   if (args_info->acc_max_ss_given)
     write_into_file(outfile, "acc-max-ss", 0, 0 );
+  if (args_info->acc_num_given)
+    write_into_file(outfile, "acc-num", args_info->acc_num_orig, 0);
   if (args_info->max_w_given)
     write_into_file(outfile, "max-w", args_info->max_w_orig, 0);
   if (args_info->min_w_given)
@@ -649,6 +658,7 @@ cmdline_parser_internal (
         { "acc-th",	1, NULL, 's' },
         { "acc-max",	0, NULL, 0 },
         { "acc-max-ss",	0, NULL, 0 },
+        { "acc-num",	1, NULL, 0 },
         { "max-w",	1, NULL, 0 },
         { "min-w",	1, NULL, 0 },
         { "zscore",	1, NULL, 0 },
@@ -811,6 +821,20 @@ cmdline_parser_internal (
             if (update_arg((void *)&(args_info->acc_max_ss_flag), 0, &(args_info->acc_max_ss_given),
                 &(local_args_info.acc_max_ss_given), optarg, 0, 0, ARG_FLAG,
                 check_ambiguity, override, 1, 0, "acc-max-ss", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* the number of accessible regions (0=unlimited).  */
+          else if (strcmp (long_options[option_index].name, "acc-num") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->acc_num_arg), 
+                 &(args_info->acc_num_orig), &(args_info->acc_num_given),
+                &(local_args_info.acc_num_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "acc-num", '-',
                 additional_error))
               goto failure;
           

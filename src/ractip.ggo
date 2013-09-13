@@ -18,6 +18,8 @@ option "acc-max"	 - "optimize for accessibility instead of internal secondary st
        			   flag off
 option "acc-max-ss"	 - "additional prediction of interanal secondary structures"
        			   flag off
+option "acc-num"	 - "the number of accessible regions (0=unlimited)"
+       			   int default="0" optional
 option "max-w"		 - "Maximum length of accessible regions"
        			   int default="0" optional
 option "min-w"		 - "Minimum length of accessible regions"
