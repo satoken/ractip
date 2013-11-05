@@ -30,23 +30,199 @@
 #include <ctype.h>
 #include <string.h>
 
-#define MIN2(A, B)      ((A) < (B) ? (A) : (B))
-#define MAX2(A, B)      ((A) > (B) ? (A) : (B))
-void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
-void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
+inline
+double
+LogAdd(double x, double y)
+{
+  if (x<=log(0.0)) return y;
+  if (y<=log(0.0)) return x;
+  return x>y ? log1p(exp(y-x))+x : log1p(exp(x-y))+y;
+}
+
+#ifdef HAVE_VIENNA20
 
 #include <ViennaRNA/energy_par.h>
 #include <ViennaRNA/fold_vars.h>
 #include <ViennaRNA/fold.h>
 #include <ViennaRNA/pair_mat.h>
 #include <ViennaRNA/params.h>
-#ifdef HAVE_VIENNA20
 #include <ViennaRNA/loop_energies.h>
-#endif
+#include <ViennaRNA/utils.h>
+
 #include "pf_duplex.h"
 
 #define PUBLIC
 #define PRIVATE static
+
+PRIVATE paramT  *P  = NULL;
+PRIVATE double **fw;      /* energy array, given that i-j pair */
+PRIVATE double **bk;      /* energy array, given that i-j pair */
+PUBLIC double **pr_duplex;     /* energy array, given that i-j pair */
+PRIVATE short   *S1 = NULL, *SS1 = NULL, *S2 = NULL, *SS2 = NULL;
+PRIVATE int     n1,n2;                /* sequence lengths */
+
+PRIVATE double pf_duplex_fw();
+PRIVATE double pf_duplex_bk();
+
+PUBLIC
+double
+pf_duplex(const char *s1, const char *s2)
+{
+  int i, j;
+  double Esum;
+  double kT = (temperature+K0)*GASCONST;
+
+  n1 = (int) strlen(s1);
+  n2 = (int) strlen(s2);
+
+  if ((!P) || (fabs(P->temperature - temperature)>1e-6)) {
+    if(P) free(P); P = scale_parameters();
+    make_pair_matrix();
+  }
+
+  pr_duplex = (double **) space(sizeof(double *) * (n1+1));
+  for (i=1; i<=n1; i++) pr_duplex[i] = (double *) space(sizeof(double) * (n2+1));
+
+  S1  = encode_sequence(s1, 0);
+  S2  = encode_sequence(s2, 0);
+  SS1 = encode_sequence(s1, 1);
+  SS2 = encode_sequence(s2, 1);
+
+  Esum = pf_duplex_fw();
+  pf_duplex_bk();
+
+  pr_duplex = (double **) space(sizeof(double *) * (n1+1));
+  for (i=1; i<=n1; i++) pr_duplex[i] = (double *) space(sizeof(double) * (n2+1));
+
+  for (i=1; i<=n1; i++) {
+    for (j=n2; j>0; j--) {
+      int type, type2, E;
+      type = pair[S1[i]][S2[j]];
+      pr_duplex[i][j] = exp(fw[i][j]+bk[i][j]-Esum);
+    }
+  }
+
+  for (i=1; i<=n1; i++) {
+    free(fw[i]);
+    free(bk[i]);
+  }
+  free(fw);
+  free(bk);
+  free(S1);
+  free(S2);
+  free(SS1);
+  free(SS2);
+  
+  return Esum;
+}
+
+PUBLIC
+void
+free_pf_duplex()
+{
+  int i;
+  for (i=1; i<=n1; i++) free(pr_duplex[i]);
+  free(pr_duplex);
+}
+
+PRIVATE
+double
+pf_duplex_fw()
+{
+  int i, j;
+  double Esum=log(0.0);
+  double kT = (temperature+K0)*GASCONST;
+
+  fw = (double **) space(sizeof(double *) * (n1+1));
+  for (i=1; i<=n1; i++) fw[i] = (double *) space(sizeof(double) * (n2+1));
+  
+  for (i=1; i<=n1; i++) {
+    for (j=n2; j>0; j--) {
+      int type, type2, E, k,l;
+      type = pair[S1[i]][S2[j]];
+      fw[i][j] = log(0.0);
+      if (!type) continue;
+      E = P->DuplexInit;
+      E += E_ExtLoop(type, (i>1) ? SS1[i-1] : -1, (j<n2) ? SS2[j+1] : -1, P);
+      fw[i][j] = -E*10./kT;
+      for (k=i-1; k>0 && k>i-MAXLOOP-2; k--) {
+        for (l=j+1; l<=n2; l++) {
+          if (i-k+l-j-2>MAXLOOP) break;
+          type2 = pair[S1[k]][S2[l]];
+          if (!type2) continue;
+          E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
+                            SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
+          fw[i][j] = LogAdd(fw[i][j], fw[k][l]-E*10./kT);
+        }
+      }
+      E = 0.0;
+      E += E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
+      Esum = LogAdd(Esum, fw[i][j]-E*10./kT);
+    }
+  }
+
+  return Esum;
+}
+
+PRIVATE
+double
+pf_duplex_bk()
+{
+  int i, j;
+  double Esum=log(0.0);
+  double kT = (temperature+K0)*GASCONST;
+
+  bk = (double **) space(sizeof(double *) * (n1+1));
+  for (i=1; i<=n1; i++) {
+    bk[i] = (double *) space(sizeof(double) * (n2+1));
+    for (j=1; j<=n2; j++) bk[i][j] = log(0.0);
+  }
+  
+  for (i=n1; i>0; i--) {
+    for (j=1; j<=n2; j++) {
+      int type, type2, E, k,l;
+      type = pair[S1[i]][S2[j]];
+      if (!type) continue;
+      E = 0.0;
+      E += E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
+      bk[i][j] = LogAdd(bk[i][j], -E*10./kT);
+      
+      for (k=i-1; k>0 && k>i-MAXLOOP-2; k--) {
+        for (l=j+1; l<=n2; l++) {
+          if (i-k+l-j-2>MAXLOOP) break;
+          type2 = pair[S1[k]][S2[l]];
+          if (!type2) continue;
+          E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
+                            SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
+          bk[k][l] = LogAdd(bk[k][l], bk[i][j]-E*10./kT);
+        }
+      }
+
+      E = P->DuplexInit;
+      E += E_ExtLoop(type, (i>1) ? SS1[i-1] : -1, (j<n2) ? SS2[j+1] : -1, P);
+      Esum = LogAdd(Esum, bk[i][j]-E*10./kT);
+    }
+  }
+
+  return Esum;
+}
+
+
+#else  /* HAVE_VIENNA20 */
+
+#include <ViennaRNA/energy_par.h>
+#include <ViennaRNA/fold_vars.h>
+#include <ViennaRNA/fold.h>
+#include <ViennaRNA/pair_mat.h>
+#include <ViennaRNA/params.h>
+
+#include "pf_duplex.h"
+
+#define PUBLIC
+#define PRIVATE static
+
+void  *space(unsigned size) /*@ensures MaxSet(result) == (size-1);@*/;
+void  *xrealloc(/*@null@*/ /*@only@*/ /*@out@*/ /*@returned@*/ void *p, unsigned size) /*@modifies *p @*/ /*@ensures MaxSet(result) == (size-1) @*/;
 
 PRIVATE void  encode_seqs(const char *s1, const char *s2);
 PRIVATE short *encode_seq(const char *seq);
@@ -56,24 +232,13 @@ PRIVATE paramT *P = NULL;
 PRIVATE double **fw;      /* energy array, given that i-j pair */
 PRIVATE double **bk;      /* energy array, given that i-j pair */
 PUBLIC double **pr_duplex;      /* energy array, given that i-j pair */
-PUBLIC double **pr_duplex2;
+/* PUBLIC double **pr_duplex2; */
 PRIVATE short  *S1, *SS1, *S2, *SS2;
 PRIVATE int   n1,n2;    /* sequence lengths */
-#ifndef HAVE_VIENNA20
 extern  int  LoopEnergy(int n1, int n2, int type, int type_2,
                         int si1, int sj1, int sp1, int sq1);
-#endif
 PRIVATE double pf_duplex_fw();
 PRIVATE double pf_duplex_bk();
-
-inline
-double
-LogAdd(double x, double y)
-{
-  if (x<=log(0.0)) return y;
-  if (y<=log(0.0)) return x;
-  return x>y ? log1p(exp(y-x))+x : log1p(exp(x-y))+y;
-}
 
 double
 pf_duplex(const char *s1, const char *s2)
@@ -104,19 +269,14 @@ pf_duplex(const char *s1, const char *s2)
       int type, type2, E;
       type = pair[S1[i]][S2[j]];
       pr_duplex[i][j] = exp(fw[i][j]+bk[i][j]-Esum);
-      if (i>1 && j<n2) {
-        type2 = pair[S1[i-1]][S2[j+1]];
-        if (type2) {
-#ifdef HAVE_VIENNA20
-          E = E_IntLoop(0, 0, type2, rtype[type],
-                        SS1[i], SS2[j], SS1[i-1], SS2[j+1], P);
-#else
-	  E = LoopEnergy(0, 0, type2, rtype[type],
-                         SS1[i], SS2[j], SS1[i-1], SS2[j+1]);
-#endif
-          pr_duplex2[i][j] = exp(fw[i-1][j+1]+bk[i][j]-E*10./kT-Esum);
-        }        
-      }
+      /* if (i>1 && j<n2) { */
+      /*   type2 = pair[S1[i-1]][S2[j+1]]; */
+      /*   if (type2) { */
+      /*     E = LoopEnergy(0, 0, type2, rtype[type], */
+      /*                    SS1[i], SS2[j], SS1[i-1], SS2[j+1]); */
+      /*     pr_duplex2[i][j] = exp(fw[i-1][j+1]+bk[i][j]-E*10./kT-Esum); */
+      /*   }         */
+      /* } */
     }
   }
 
@@ -126,6 +286,10 @@ pf_duplex(const char *s1, const char *s2)
   }
   free(fw);
   free(bk);
+  free(S1);
+  free(S2);
+  free(SS1);
+  free(SS2);
   
   return Esum;
 }
@@ -136,8 +300,8 @@ free_pf_duplex()
   int i;
   for (i=1; i<=n1; i++) free(pr_duplex[i]);
   free(pr_duplex);
-  for (i=1; i<=n1; i++) free(pr_duplex2[i]);
-  free(pr_duplex2);
+  /* for (i=1; i<=n1; i++) free(pr_duplex2[i]); */
+  /* free(pr_duplex2); */
 }
 
 PRIVATE
@@ -167,13 +331,8 @@ pf_duplex_fw()
 	  if (i-k+l-j-2>MAXLOOP) break;
 	  type2 = pair[S1[k]][S2[l]];
 	  if (!type2) continue;
-#ifdef HAVE_VIENNA20
-	  E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
-                        SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
-#else
 	  E = LoopEnergy(i-k-1, l-j-1, type2, rtype[type],
 			    SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1]);
-#endif
 	  fw[i][j] = LogAdd(fw[i][j], fw[k][l]-E*10./kT);
 	}
       }
@@ -218,13 +377,8 @@ pf_duplex_bk()
 	  if (i-k+l-j-2>MAXLOOP) break;
 	  type2 = pair[S1[k]][S2[l]];
 	  if (!type2) continue;
-#ifdef HAVE_VIENNA20
-	  E = E_IntLoop(i-k-1, l-j-1, type2, rtype[type],
-                        SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1], P);
-#else
 	  E = LoopEnergy(i-k-1, l-j-1, type2, rtype[type],
 			    SS1[k+1], SS2[l-1], SS1[i-1], SS2[j+1]);
-#endif
           bk[k][l] = LogAdd(bk[k][l], bk[i][j]-E*10./kT);
 	}
       }
@@ -278,3 +432,4 @@ PRIVATE void encode_seqs(const char *s1, const char *s2) {
     SS2[i] = alias[S2[i]];   /* for mismatches of nostandard bases */
   }
 }
+#endif
