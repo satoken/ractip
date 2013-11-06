@@ -1174,7 +1174,7 @@ parse_options(int& argc, char**& argv)
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.mccaskill_flag==0;
-  //use_pf_duplex_ = args_info.pf_duplex_flag;
+  use_pf_duplex_ = args_info.cofold_flag==0;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
   //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;
@@ -1213,38 +1213,29 @@ calculate_energy(const std::string s1, const std::string& s2,
   e1=Vienna::energy_of_struct(s1.c_str(), r1.c_str());
   e2=Vienna::energy_of_struct(s2.c_str(), r2.c_str());
 #endif
-  std::string ss(s1+"NNN"+s2);
 
-  std::string r1_temp(r1);
-  for (std::string::iterator x=r1_temp.begin(); x!=r1_temp.end(); ++x)
+  std::string ss(s1+s2);
+  std::string rr(r1+r2);
+  for (std::string::iterator x=rr.begin(); x!=rr.end(); ++x)
   {
     switch (*x)
     {
       case '(': case ')': *x='.'; break;
       case '[': *x='('; break;
-      default: break;
-    }
-  }
-
-  std::string r2_temp(r2);
-  for (std::string::iterator x=r2_temp.begin(); x!=r2_temp.end(); ++x)
-  {
-    switch (*x)
-    {
-      case '(': case ')': *x='.'; break;
       case ']': *x=')'; break;
       default: break;
     }
   }
-
-  std::string rr(r1_temp+"..."+r2_temp);
   //std::cout << ss << std::endl << rr << std::endl;
+
+  Vienna::cut_point = s1.size()+1;
 #ifdef HAVE_VIENNA20
   e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
 #else
   Vienna::eos_debug = -1;
   e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
 #endif
+  Vienna::cut_point = -1;
 }
 
 int

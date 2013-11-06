@@ -42,7 +42,7 @@ option "no-pk"		 - "do not use the constraints for interenal pseudoknots"
        			   flag off hidden
 option "rip"		 r "Import posterior probabilities from the result of RIP"
        			   string typestr="FILENAME" optional hidden
-# option "pf-duplex"	 - "Use pf_duplex routine"
-#        			   flag off hidden
+option "cofold"	 	 - "Use co_pf_fold routine"
+       			   flag off hidden
 # option "modena"		 - "Run with MODENA"
 #        			   flag off hidden
