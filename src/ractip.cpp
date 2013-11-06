@@ -116,13 +116,13 @@ public:
   RactIP& parse_options(int& argc, char**& argv);
   int run();
   float solve(const std::string& s1, const std::string& s2,
-              std::string& r1, std::string& r2);
+              std::string& r1, std::string& r2,
+              float* e1=NULL, float* e2=NULL, float* e3=NULL);
   float solve_ss(const std::string& s, const VF& bp, const VI& offset,
                  const std::vector<bool>& u, std::string& r);
 
-  static void calculate_energy(const std::string s1, const std::string& s2,
-                               const std::string r1, const std::string& r2,
-                               float& e1, float& e2, float& e3);
+  static float energy_of_duplex(const std::string s1, const std::string& s2,
+                                const std::string r1, const std::string& r2);
 
 private:
   void contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const;
@@ -391,7 +391,8 @@ load_from_rip(const char* filename,
 
 float
 RactIP::
-solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2)
+solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2,
+      float* e1 /* =NULL */, float* e2 /* =NULL */, float* e3 /* =NULL */)
 {
   IP ip(IP::MAX, n_th_);
   VF bp1, bp2;
@@ -980,6 +981,8 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       {
         r1[i]='['; r2[j]=']';
       }
+  if (e3!=NULL)
+    *e3 = energy_of_duplex(s1, s2, r1, r2);
 
   if (enable_structure_s1)
   {
@@ -991,16 +994,35 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
             assert(r1[i]=='.'); assert(r1[j]=='.');
             r1[i]='('; r1[j]=')';
           }
+    if (e1!=NULL)
+    {
+#ifdef HAVE_VIENNA20
+      *e1=Vienna::energy_of_structure(s1.c_str(), r1.c_str(), -1);
+#else
+      Vienna::eos_debug = -1;
+      *e1=Vienna::energy_of_struct(s1.c_str(), r1.c_str());
+#endif
+    }      
   }
-  else
+  else 
   {
-    std::vector<bool> u1(s1.size(), true);
-    for (uint j=0; j!=v.size(); ++j)
-      if (ip.get_value(v[j])>0.5)
-        for (uint i=vv[j].first; i<=vv[j].second; ++i)
-          u1[i]=false;
     if (acc_max_ss_)
+    {
+      std::vector<bool> u1(s1.size(), true);
+      for (uint j=0; j!=v.size(); ++j)
+        if (ip.get_value(v[j])>0.5)
+          for (uint i=vv[j].first; i<=vv[j].second; ++i)
+            u1[i]=false;
       ea += solve_ss(s1, bp1, offset1, u1, r1);
+    }
+    if (e1!=NULL)
+    {
+      const double kT = (Vienna::temperature+K0)*GASCONST/1000.;
+      *e1=0.0;
+      for (uint j=0; j!=v.size(); ++j)
+        if (ip.get_value(v[j])>0.5)
+          *e1+=-log(up1[vv[j].first][vv[j].second-vv[j].first])*kT;
+    }
   }
 
   if (enable_structure_s2)
@@ -1013,16 +1035,35 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
             assert(r2[i]=='.'); assert(r2[j]=='.');
             r2[i]='('; r2[j]=')';
           }
+    if (e2!=NULL)
+    {
+#ifdef HAVE_VIENNA20
+      *e2=Vienna::energy_of_structure(s2.c_str(), r2.c_str(), -1);
+#else
+      Vienna::eos_debug = -1;
+      *e2=Vienna::energy_of_struct(s2.c_str(), r2.c_str());
+#endif
+    }      
   }
-  else
+  else 
   {
-    std::vector<bool> u2(s2.size(), true);
-    for (uint j=0; j!=w.size(); ++j)
-      if (ip.get_value(w[j])>0.5)
-        for (uint i=ww[j].first; i<=ww[j].second; ++i)
-          u2[i]=false;
     if (acc_max_ss_)
+    {
+      std::vector<bool> u2(s2.size(), true);
+      for (uint j=0; j!=w.size(); ++j)
+        if (ip.get_value(w[j])>0.5)
+          for (uint i=ww[j].first; i<=ww[j].second; ++i)
+            u2[i]=false;
       ea += solve_ss(s2, bp2, offset2, u2, r2);
+    }
+    if (e2!=NULL)
+    {
+      const double kT = (Vienna::temperature+K0)*GASCONST/1000.;
+      *e2=0.0;
+      for (uint j=0; j!=w.size(); ++j)
+        if (ip.get_value(w[j])>0.5)
+          *e2+=-log(up2[ww[j].first][ww[j].second-ww[j].first])*kT;
+    }
   }
 
 #if 0
@@ -1199,21 +1240,12 @@ parse_options(int& argc, char**& argv)
 }
 
 // static
-void
+float
 RactIP::
-calculate_energy(const std::string s1, const std::string& s2,
-                 const std::string r1, const std::string& r2,
-                 float& e1, float& e2, float& e3)
+energy_of_duplex(const std::string s1, const std::string& s2,
+                 const std::string r1, const std::string& r2)
 {
-#ifdef HAVE_VIENNA20
-  e1=Vienna::energy_of_structure(s1.c_str(), r1.c_str(), -1);
-  e2=Vienna::energy_of_structure(s2.c_str(), r2.c_str(), -1);
-#else
-  Vienna::eos_debug = -1;
-  e1=Vienna::energy_of_struct(s1.c_str(), r1.c_str());
-  e2=Vienna::energy_of_struct(s2.c_str(), r2.c_str());
-#endif
-
+  float e;
   std::string ss(s1+s2);
   std::string rr(r1+r2);
   for (std::string::iterator x=rr.begin(); x!=rr.end(); ++x)
@@ -1230,12 +1262,14 @@ calculate_energy(const std::string s1, const std::string& s2,
 
   Vienna::cut_point = s1.size()+1;
 #ifdef HAVE_VIENNA20
-  e3=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
+  e=Vienna::energy_of_structure(ss.c_str(), rr.c_str(), -1);
 #else
   Vienna::eos_debug = -1;
-  e3=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
+  e=Vienna::energy_of_struct(ss.c_str(), rr.c_str());
 #endif
   Vienna::cut_point = -1;
+
+  return e;
 }
 
 int
@@ -1272,7 +1306,11 @@ run()
 
   // predict the interation
   std::string r1, r2;
-  float ea = solve(fa1.seq(), fa2.seq(), r1, r2) ;
+  float ea, e1, e2, e3;
+  if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
+    ea = solve(fa1.seq(), fa2.seq(), r1, r2, &e1, &e2, &e3);
+  else
+    ea = solve(fa1.seq(), fa2.seq(), r1, r2);
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
@@ -1283,8 +1321,6 @@ run()
   // show energy of the joint structure
   if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
   {
-    float e1, e2, e3;
-    calculate_energy(fa1.seq(), fa2.seq(), r1, r2, e1, e2, e3);
     if (show_energy_)
       std::cout << "(E: S1=" << e1 << ", "
                 << "S2=" << e2 << ", "
@@ -1310,9 +1346,8 @@ run()
           uShuffle::shuffle(fa1.seq().c_str(), &s1[0], fa1.seq().size(), 2);
         if (enable_zscore_==2 || enable_zscore_==12)
           uShuffle::shuffle(fa2.seq().c_str(), &s2[0], fa2.seq().size(), 2);
-        solve(s1, s2, r1, r2);
         float ee1, ee2, ee3;
-        calculate_energy(s1, s2, r1, r2, ee1, ee2, ee3);
+        solve(s1, s2, r1, r2, &ee1, &ee2, &ee3);
         float ee=ee1+ee2+ee3;
 #if 0
         std::cout << s1 << std::endl << r1 << std::endl
