@@ -55,6 +55,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --no-pk                do not use the constraints for interenal \n                               pseudoknots  (default=off)",
   "  -r, --rip=FILENAME         Import posterior probabilities from the result of \n                               RIP",
   "      --cofold               Use co_pf_fold routine  (default=off)",
+  "      --no-bl                do not use BL parameters  (default=off)",
     0
 };
 
@@ -133,6 +134,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->no_pk_given = 0 ;
   args_info->rip_given = 0 ;
   args_info->cofold_given = 0 ;
+  args_info->no_bl_given = 0 ;
 }
 
 static
@@ -172,6 +174,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->rip_arg = NULL;
   args_info->rip_orig = NULL;
   args_info->cofold_flag = 0;
+  args_info->no_bl_flag = 0;
   
 }
 
@@ -203,6 +206,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->no_pk_help = gengetopt_args_info_full_help[20] ;
   args_info->rip_help = gengetopt_args_info_full_help[21] ;
   args_info->cofold_help = gengetopt_args_info_full_help[22] ;
+  args_info->no_bl_help = gengetopt_args_info_full_help[23] ;
   
 }
 
@@ -391,6 +395,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "rip", args_info->rip_orig, 0);
   if (args_info->cofold_given)
     write_into_file(outfile, "cofold", 0, 0 );
+  if (args_info->no_bl_given)
+    write_into_file(outfile, "no-bl", 0, 0 );
   
 
   i = EXIT_SUCCESS;
@@ -672,6 +678,7 @@ cmdline_parser_internal (
         { "no-pk",	0, NULL, 0 },
         { "rip",	1, NULL, 'r' },
         { "cofold",	0, NULL, 0 },
+        { "no-bl",	0, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -943,6 +950,18 @@ cmdline_parser_internal (
             if (update_arg((void *)&(args_info->cofold_flag), 0, &(args_info->cofold_given),
                 &(local_args_info.cofold_given), optarg, 0, 0, ARG_FLAG,
                 check_ambiguity, override, 1, 0, "cofold", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* do not use BL parameters.  */
+          else if (strcmp (long_options[option_index].name, "no-bl") == 0)
+          {
+          
+          
+            if (update_arg((void *)&(args_info->no_bl_flag), 0, &(args_info->no_bl_given),
+                &(local_args_info.no_bl_given), optarg, 0, 0, ARG_FLAG,
+                check_ambiguity, override, 1, 0, "no-bl", '-',
                 additional_error))
               goto failure;
           

@@ -104,6 +104,7 @@ public:
       n_th_(1),
       rip_file_(),
       param_file_(),
+      use_bl_param_(true),
       fa1_(),
       fa2_()
   {
@@ -158,6 +159,7 @@ private:
   int n_th_;                   // the number of threads
   std::string rip_file_;
   std::string param_file_;
+  bool use_bl_param_;
   std::string fa1_;
   std::string fa2_;
 };
@@ -1222,6 +1224,7 @@ parse_options(int& argc, char**& argv)
   if (args_info.rip_given) rip_file_ = args_info.rip_arg;
   show_energy_ = args_info.show_energy_flag==1;
   if (args_info.param_file_given) param_file_ = args_info.param_file_arg;
+  use_bl_param_ = args_info.no_bl_flag==0;
 
   if (args_info.inputs_num==0 ||
       (min_w_!=0 && max_w_!=0 && (min_w_>max_w_ || use_contrafold_)))
@@ -1277,7 +1280,8 @@ RactIP::
 run()
 {
   // set the energy parameters
-  copy_boltzmann_parameters();
+  if (use_bl_param_)
+    copy_boltzmann_parameters();
   if (!param_file_.empty())
     Vienna::read_parameter_file(param_file_.c_str());
   

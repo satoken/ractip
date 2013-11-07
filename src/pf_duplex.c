@@ -155,8 +155,7 @@ pf_duplex_fw()
           fw[i][j] = LogAdd(fw[i][j], fw[k][l]-E*10./kT);
         }
       }
-      E = 0.0;
-      E += E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
+      E = E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
       Esum = LogAdd(Esum, fw[i][j]-E*10./kT);
     }
   }
@@ -183,8 +182,7 @@ pf_duplex_bk()
       int type, type2, E, k,l;
       type = pair[S1[i]][S2[j]];
       if (!type) continue;
-      E = 0.0;
-      E += E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
+      E = E_ExtLoop(rtype[type], (j > 1) ? SS2[j-1] : -1, (i<n1) ? SS1[i+1] : -1, P);
       bk[i][j] = LogAdd(bk[i][j], -E*10./kT);
       
       for (k=i-1; k>0 && k>i-MAXLOOP-2; k--) {

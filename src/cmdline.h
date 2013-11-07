@@ -97,6 +97,8 @@ struct gengetopt_args_info
   const char *rip_help; /**< @brief Import posterior probabilities from the result of RIP help description.  */
   int cofold_flag;	/**< @brief Use co_pf_fold routine (default=off).  */
   const char *cofold_help; /**< @brief Use co_pf_fold routine help description.  */
+  int no_bl_flag;	/**< @brief do not use BL parameters (default=off).  */
+  const char *no_bl_help; /**< @brief do not use BL parameters help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int full_help_given ;	/**< @brief Whether full-help was given.  */
@@ -121,6 +123,7 @@ struct gengetopt_args_info
   unsigned int no_pk_given ;	/**< @brief Whether no-pk was given.  */
   unsigned int rip_given ;	/**< @brief Whether rip was given.  */
   unsigned int cofold_given ;	/**< @brief Whether cofold was given.  */
+  unsigned int no_bl_given ;	/**< @brief Whether no-bl was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */
   unsigned inputs_num ; /**< @brief unamed options number */

@@ -46,3 +46,5 @@ option "cofold"	 	 - "Use co_pf_fold routine"
        			   flag off hidden
 # option "modena"		 - "Run with MODENA"
 #        			   flag off hidden
+option "no-bl"	 	 - "do not use BL parameters"
+       			   flag off hidden
