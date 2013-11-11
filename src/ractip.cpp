@@ -749,26 +749,29 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       ip.add_constraint(row, w_st[i], 1);
     }
 
-    // each accessible resion v[p][q] contains at least one z[i][j]
-    // sum_{p<=i<=q} z_un1[i] + v[p][q] <= p-q+1
-    //  -> sum_{p<=i<=q} sum_k z[i][k] >= v[p][q]
-    for (uint j=0; j!=v.size(); ++j)
+    if (beta_>0.0)
     {
-      int row = ip.make_constraint(IP::UP, 0, vv[j].second-vv[j].first+1);
-      ip.add_constraint(row, v[j], 1);
-      for (uint i=vv[j].first; i<=vv[j].second; ++i)
-        ip.add_constraint(row, z_un1[i], 1);
-    }
+      // each accessible region v[p][q] contains at least one z[i][j]
+      // sum_{p<=i<=q} z_un1[i] + v[p][q] <= p-q+1
+      //  -> sum_{p<=i<=q} sum_k z[i][k] >= v[p][q]
+      for (uint j=0; j!=v.size(); ++j)
+      {
+        int row = ip.make_constraint(IP::UP, 0, vv[j].second-vv[j].first+1);
+        ip.add_constraint(row, v[j], 1);
+        for (uint i=vv[j].first; i<=vv[j].second; ++i)
+          ip.add_constraint(row, z_un1[i], 1);
+      }
 
-    // each accessible resion w[p][q] contains at least one z[i][j]
-    // sum_{p<=i<=q} z_un2[i] + w[p][q] <= p-q+1
-    //  -> sum_{p<=i<=q} sum_k z[k][i] >= w[p][q]
-    for (uint j=0; j!=w.size(); ++j)
-    {
-      int row = ip.make_constraint(IP::UP, 0, ww[j].second-ww[j].first+1);
-      ip.add_constraint(row, w[j], 1);
-      for (uint i=ww[j].first; i<=ww[j].second; ++i)
-        ip.add_constraint(row, z_un2[i], 1);
+      // each accessible region w[p][q] contains at least one z[i][j]
+      // sum_{p<=i<=q} z_un2[i] + w[p][q] <= p-q+1
+      //  -> sum_{p<=i<=q} sum_k z[k][i] >= w[p][q]
+      for (uint j=0; j!=w.size(); ++j)
+      {
+        int row = ip.make_constraint(IP::UP, 0, ww[j].second-ww[j].first+1);
+        ip.add_constraint(row, w[j], 1);
+        for (uint i=ww[j].first; i<=ww[j].second; ++i)
+          ip.add_constraint(row, z_un2[i], 1);
+      }
     }
 
 #if 0
