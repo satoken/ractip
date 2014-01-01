@@ -120,7 +120,9 @@ public:
               std::string& r1, std::string& r2,
               float* e1=NULL, float* e2=NULL, float* e3=NULL);
   float solve_ss(const std::string& s, const VF& bp, const VI& offset,
-                 const std::vector<bool>& u, std::string& r);
+                 const std::vector<bool>& u, std::string& r, float* e=NULL);
+  float solve_ss(const std::string& s, const VF& bp, const VI& offset,
+                 std::string& r, float* e=NULL);
 
   static float energy_of_duplex(const std::string s1, const std::string& s2,
                                 const std::string r1, const std::string& r2);
@@ -162,6 +164,14 @@ private:
   bool use_bl_param_;
   std::string fa1_;
   std::string fa2_;
+
+  VF bp1_;
+  VF bp2_;
+  VI offset1_;
+  VI offset2_;
+  VVF hp_;
+  VVF up1_;
+  VVF up2_;
 };
 
 void
@@ -397,10 +407,6 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       float* e1 /* =NULL */, float* e2 /* =NULL */, float* e3 /* =NULL */)
 {
   IP ip(IP::MAX, n_th_);
-  VF bp1, bp2;
-  VI offset1, offset2;
-  VVF hp;
-  VVF up1, up2;
   bool enable_accessibility = min_w_>1 && max_w_>=min_w_;
   bool enable_structure_s1 = !acc_max_;
   bool enable_structure_s2 = !acc_max_;
@@ -408,20 +414,20 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   // calculate posterior probability matrices
   if (!rip_file_.empty())
   {
-    load_from_rip(rip_file_.c_str(), s1, s2, bp1, offset1, bp2, offset2, hp);
+    load_from_rip(rip_file_.c_str(), s1, s2, bp1_, offset1_, bp2_, offset2_, hp_);
   }
   else if (use_contrafold_)
   {
-    contrafold(s1, bp1, offset1, up1);
-    contrafold(s2, bp2, offset2, up2);
-    //contraduplex(s1, s2, hp);
-    rnaduplex(s1, s2, hp);
+    contrafold(s1, bp1_, offset1_, up1_);
+    contrafold(s2, bp2_, offset2_, up2_);
+    //contraduplex(s1_, s2_, hp_);
+    rnaduplex(s1, s2, hp_);
   }
   else
   {
-    rnafold(s1, bp1, offset1, up1, std::max(1, max_w_));
-    rnafold(s2, bp2, offset2, up2, std::max(1, max_w_));
-    rnaduplex(s1, s2, hp);
+    rnafold(s1, bp1_, offset1_, up1_, std::max(1, max_w_));
+    rnafold(s2, bp2_, offset2_, up2_, std::max(1, max_w_));
+    rnaduplex(s1, s2, hp_);
   }
   
   // make objective variables with their weights
@@ -434,7 +440,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       for (uint i=j-1; i!=-1u; --i)
       {
-        const float& p=bp1[offset1[i+1]+(j+1)];
+        const float& p=bp1_[offset1_[i+1]+(j+1)];
         if (p>th_ss_)
         {
           x[i][j] = x[j][i] = ip.make_variable(p-th_ss_);
@@ -455,7 +461,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     {
       for (uint i=j-1; i!=-1u; --i)
       {
-        const float& p=bp2[offset2[i+1]+(j+1)];
+        const float& p=bp2_[offset2_[i+1]+(j+1)];
         if (p>th_ss_)
         {
           y[i][j] = y[j][i] = ip.make_variable(p-th_ss_);
@@ -475,7 +481,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   {
     for (uint j=0; j!=s2.size(); ++j)
     {
-      const float& p=hp[i+1][j+1];
+      const float& p=hp_[i+1][j+1];
       if (p>th_hy_)
       {
         z[i][j] = ip.make_variable(alpha_*(p-th_hy_));
@@ -494,11 +500,11 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   VI v_en(s1.size(), -1);       // # of accessible regions that end at i in s1
   if (enable_accessibility)
   {
-    for (uint i=0; i!=up1.size(); ++i)
-      for (uint j=min_w_-1; j<up1[i].size(); ++j)
-        if (up1[i][j]>th_ac_)
+    for (uint i=0; i!=up1_.size(); ++i)
+      for (uint j=min_w_-1; j<up1_[i].size(); ++j)
+        if (up1_[i][j]>th_ac_)
         {
-          v.push_back(ip.make_variable(beta_*(up1[i][j]-th_ac_)));
+          v.push_back(ip.make_variable(beta_*(up1_[i][j]-th_ac_)));
           vv.push_back(std::make_pair(i,i+j));
         }
   }
@@ -514,11 +520,11 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
   VI w_en(s2.size(), -1);       // # of accessible regions that end at i in s2
   if (enable_accessibility)
   {
-    for (uint i=0; i!=up2.size(); ++i)
-      for (uint j=min_w_-1; j<up2[i].size(); ++j)
-        if (up2[i][j]>th_ac_)
+    for (uint i=0; i!=up2_.size(); ++i)
+      for (uint j=min_w_-1; j<up2_[i].size(); ++j)
+        if (up2_[i][j]>th_ac_)
         {
-          w.push_back(ip.make_variable(beta_*(up2[i][j]-th_ac_)));
+          w.push_back(ip.make_variable(beta_*(up2_[i][j]-th_ac_)));
           ww.push_back(std::make_pair(i,i+j));
         }
   }
@@ -798,6 +804,17 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     }
   }
 
+  if (enable_accessibility && acc_num_>0)
+  {
+    int row = ip.make_constraint(IP::UP, 0, acc_num_);
+    for (uint i=0; i!=v.size(); ++i)
+      ip.add_constraint(row, v[i], 1);
+
+    row = ip.make_constraint(IP::UP, 0, acc_num_);
+    for (uint i=0; i!=w.size(); ++i)
+      ip.add_constraint(row, w[i], 1);
+  }
+
   // disallow external pseudoknots
   for (uint i=0; i<zz.size(); ++i)
     for (uint k=i+1; k<zz.size(); ++k)
@@ -1018,7 +1035,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         if (ip.get_value(v[j])>0.5)
           for (uint i=vv[j].first; i<=vv[j].second; ++i)
             u1[i]=false;
-      ea += solve_ss(s1, bp1, offset1, u1, r1);
+      ea += solve_ss(s1, bp1_, offset1_, u1, r1);
     }
     if (e1!=NULL)
     {
@@ -1026,7 +1043,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       *e1=0.0;
       for (uint j=0; j!=v.size(); ++j)
         if (ip.get_value(v[j])>0.5)
-          *e1+=-log(up1[vv[j].first][vv[j].second-vv[j].first])*kT;
+          *e1+=-log(up1_[vv[j].first][vv[j].second-vv[j].first])*kT;
     }
   }
 
@@ -1059,7 +1076,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
         if (ip.get_value(w[j])>0.5)
           for (uint i=ww[j].first; i<=ww[j].second; ++i)
             u2[i]=false;
-      ea += solve_ss(s2, bp2, offset2, u2, r2);
+      ea += solve_ss(s2, bp2_, offset2_, u2, r2);
     }
     if (e2!=NULL)
     {
@@ -1067,7 +1084,7 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
       *e2=0.0;
       for (uint j=0; j!=w.size(); ++j)
         if (ip.get_value(w[j])>0.5)
-          *e2+=-log(up2[ww[j].first][ww[j].second-ww[j].first])*kT;
+          *e2+=-log(up2_[ww[j].first][ww[j].second-ww[j].first])*kT;
     }
   }
 
@@ -1098,7 +1115,18 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
 float
 RactIP::
 solve_ss(const std::string& s, const VF& bp, const VI& offset,
-         const std::vector<bool>& u, std::string& r)
+         std::string& r, float* e /*=NULL*/)
+{
+  std::vector<bool> u(s.size(), true);
+  r.resize(s.size());
+  std::fill(r.begin(), r.end(), '.');
+  return solve_ss(s, bp, offset, u, r, e);
+}
+
+float
+RactIP::
+solve_ss(const std::string& s, const VF& bp, const VI& offset,
+         const std::vector<bool>& u, std::string& r, float* e /*=NULL*/)
 {
   IP ip(IP::MAX, n_th_);
 
@@ -1193,6 +1221,16 @@ solve_ss(const std::string& s, const VF& bp, const VI& offset,
         r[i]='('; r[j]=')';
       }
     }
+  }
+
+  if (e!=NULL)
+  {
+#ifdef HAVE_VIENNA20
+      *e=Vienna::energy_of_structure(s.c_str(), r.c_str(), -1);
+#else
+      Vienna::eos_debug = -1;
+      *e=Vienna::energy_of_struct(s.c_str(), r.c_str());
+#endif
   }
 
   return ea;
@@ -1312,10 +1350,14 @@ run()
   else { throw "unreachable"; }
 
   // predict the interation
-  std::string r1, r2;
-  float ea, e1, e2, e3;
+  std::string r1, r2, r1s, r2s;
+  float ea, e1, e2, e3, e1s, e2s;
   if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
+  {
     ea = solve(fa1.seq(), fa2.seq(), r1, r2, &e1, &e2, &e3);
+    solve_ss(fa1.seq(), bp1_, offset1_, r1s, &e1s);
+    solve_ss(fa2.seq(), bp2_, offset2_, r2s, &e2s);
+  }
   else
     ea = solve(fa1.seq(), fa2.seq(), r1, r2);
 
@@ -1329,14 +1371,18 @@ run()
   if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
   {
     if (show_energy_)
-      std::cout << "(E: S1=" << e1 << ", "
-                << "S2=" << e2 << ", "
-                << "H=" << e3 << ", "
-                << "JS=" << e1+e2+e3 << ")" << std::endl;
+      std::cout << "(E: JS= " << e1+e2+e3
+                << " = " << e1
+                << (e2>=0.0 ? "+" : "") << e2 
+                << (e3>=0.0 ? "+" : "") << e3 << ", "
+                << "S1+S2= " << e1s+e2s << " = " << e1s
+                << (e2s>=0.0 ? "+" : "") << e2s
+                << ")" << std::endl;
 
     if (enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
     {
       float sum=0.0, sum2=0.0;
+      float sums=0.0, sum2s=0.0;
       std::string s1(fa1.seq());
       std::string s2(fa2.seq());
       if (seed_==0)
@@ -1353,24 +1399,32 @@ run()
           uShuffle::shuffle(fa1.seq().c_str(), &s1[0], fa1.seq().size(), 2);
         if (enable_zscore_==2 || enable_zscore_==12)
           uShuffle::shuffle(fa2.seq().c_str(), &s2[0], fa2.seq().size(), 2);
-        float ee1, ee2, ee3;
+        float ee1, ee2, ee3, ee1s, ee2s;
         solve(s1, s2, r1, r2, &ee1, &ee2, &ee3);
+        solve_ss(s1, bp1_, offset1_, r1s, &ee1s);
+        solve_ss(s2, bp2_, offset2_, r2s, &ee2s);
         float ee=ee1+ee2+ee3;
+        float ees=ee-ee1s-ee2s;
 #if 0
         std::cout << s1 << std::endl << r1 << std::endl
                   << s2 << std::endl << r2 << std::endl;
         std::cout << ee1 << " + " << ee2 << " + " << ee3 << " = " << ee << std::endl;
 #endif
-        sum += ee;
-        sum2 += ee*ee;
+        sum += ee; sum2 += ee*ee;
+        sums += ees; sum2s += ees*ees;
       }
       float m=sum/num_shuffling_;
       float v=sum2/num_shuffling_-m*m;
       if (v<0.0) v=0.0;
+      float ms=sums/num_shuffling_;
+      float vs=sum2s/num_shuffling_-ms*ms;
+      if (vs<0.0) vs=0.0;
 #if 0
       std::cout << m << " " << v << std::endl;
 #endif
-      std::cout << "z-score: " << (e1+e2+e3-m)/sqrt(v) << std::endl;
+      std::cout << "z-score: "
+                << (e1+e2+e3-m)/sqrt(v) << ", "
+                << (e1+e2+e3-e1s-e2s-ms)/sqrt(vs) << std::endl;
     }
   }
 
