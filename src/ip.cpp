@@ -267,6 +267,11 @@ public:
     cplex_ = new IloCplex(model_);
     cplex_->setParam(IloCplex::Threads, n_th_);
     cplex_->setParam(IloCplex::MIPDisplay, 0);
+    cplex_->setParam(IloCplex::TuningDisplay, 0);
+    cplex_->setParam(IloCplex::BarDisplay, 0);
+    cplex_->setParam(IloCplex::NetDisplay, 0);
+    cplex_->setParam(IloCplex::SiftDisplay, 0);
+    cplex_->setParam(IloCplex::SimDisplay, 0);
     cplex_->solve();
     return cplex_->getObjValue();
   }

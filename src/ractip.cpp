@@ -150,7 +150,7 @@ private:
   int max_w_;                  // maximum length of accessible regions
   int min_w_;                  // mimimum length of accessible regions
   int enable_zscore_;          // flag for calculating z-score
-  int num_shuffling_;          // the number of shuffling for calculating z-score
+  uint num_shuffling_;          // the number of shuffling for calculating z-score
   uint seed_;                  // seed for random()
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
@@ -1159,18 +1159,6 @@ solve_ss(const std::string& s, const VF& bp, const VI& offset,
         ip.add_constraint(row, x[i][j], 1);
   }
 
-  // disallow internal pseudoknots in a
-  for (uint i=0; i<xx.size(); ++i)
-    for (uint p=0, j=xx[i][p]; p<xx[i].size(); ++p, j=xx[i][p])
-      for (uint k=i+1; k<j; ++k)
-        for (uint q=0, l=xx[k][q]; q<xx[k].size(); ++q, l=xx[k][q])
-          if (j<l)
-          {
-            int row = ip.make_constraint(IP::UP, 0, 1);
-            ip.add_constraint(row, x[i][j], 1);
-            ip.add_constraint(row, x[k][l], 1);
-          }
-  
   if (stacking_constraints_)
   {
     // upstream of s1
@@ -1351,15 +1339,15 @@ run()
 
   // predict the interation
   std::string r1, r2, r1s, r2s;
-  float ea, e1, e2, e3, e1s, e2s;
+  float /*ea, */ e1, e2, e3, e1s, e2s;
   if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
   {
-    ea = solve(fa1.seq(), fa2.seq(), r1, r2, &e1, &e2, &e3);
+    /*ea = */ solve(fa1.seq(), fa2.seq(), r1, r2, &e1, &e2, &e3);
     solve_ss(fa1.seq(), bp1_, offset1_, r1s, &e1s);
     solve_ss(fa2.seq(), bp2_, offset2_, r2s, &e2s);
   }
   else
-    ea = solve(fa1.seq(), fa2.seq(), r1, r2);
+    /*ea = */ solve(fa1.seq(), fa2.seq(), r1, r2);
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
