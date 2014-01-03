@@ -1,20 +1,20 @@
 /*
  * Copyright (C) 2012 Kengo Sato
  *
- * This file is part of DAFS.
+ * This file is part of RactIP.
  *
- * DAFS is free software: you can redistribute it and/or modify
+ * RactIP is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * DAFS is distributed in the hope that it will be useful,
+ * RactIP is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with DAFS.  If not, see <http://www.gnu.org/licenses/>.
+ * along with RactIP.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -97,7 +97,7 @@ public:
     glp_load_matrix(ip_, ia_.size()-1, &ia_[0], &ja_[0], &ar_[0]);
     glp_simplex(ip_, &smcp);
     glp_intopt(ip_, &iocp);
-    return glp_get_obj_val(ip_);
+    return glp_mip_obj_val(ip_);
   }
 
   double get_value(int col) const

@@ -18,3 +18,5 @@ install-sh
 missing
 stamp-h1
 src/ractip
+COPYING
+INSTALL
