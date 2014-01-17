@@ -60,7 +60,12 @@ AC_ARG_WITH([gurobi], AS_HELP_STRING([--with-gurobi], [support Gurobi optimizer]
   fi
 )
 AC_CHECK_HEADERS([gurobi_c++.h])
-AC_CHECK_LIB([gurobi20], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi20 $LIBS")
+AC_CHECK_LIB([gurobi46], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi46 $LIBS")
+AC_CHECK_LIB([gurobi50], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi50 $LIBS")
+AC_CHECK_LIB([gurobi51], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi51 $LIBS")
+AC_CHECK_LIB([gurobi55], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi55 $LIBS")
+AC_CHECK_LIB([gurobi56], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi56 $LIBS")
+
 
 # Vienna RNA package
 AC_ARG_WITH([vienna-rna], AS_HELP_STRING([--with-vienna-rna], [support Vienna RNA package]),
