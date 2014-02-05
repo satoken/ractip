@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.15])
-AC_INIT([ractip], [0.0.3], [satoken@bio.keio.ac.jp])
+AC_INIT([ractip], [1.0.0], [satoken@bio.keio.ac.jp])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_SRCDIR([src/ractip.cpp])
@@ -41,13 +41,13 @@ AC_CHECK_LIB([glpk], [glp_create_prob])
 AC_ARG_WITH([cplex], AS_HELP_STRING([--with-cplex], [support CPLEX optimizer]),
   if test "$with_cplex" != "no"; then
     CPPFLAGS="-DWITH_CPLEX -DIL_STD $CPPFLAGS"
+    AC_CHECK_HEADERS([ilconcert/ilomodel.h])
+    AC_CHECK_LIB([concert], [main])
+    AC_CHECK_HEADERS([ilcplex/ilocplex.h])
+    AC_CHECK_LIB([cplex], [main])
+    AC_CHECK_LIB([ilocplex], [main])
   fi		  
 )
-AC_CHECK_HEADERS([ilconcert/ilomodel.h])
-AC_CHECK_LIB([concert], [main])
-AC_CHECK_HEADERS([ilcplex/ilocplex.h])
-AC_CHECK_LIB([cplex], [main])
-AC_CHECK_LIB([ilocplex], [main])
 
 # gurobi optimizer
 AC_ARG_WITH([gurobi], AS_HELP_STRING([--with-gurobi], [support Gurobi optimizer]),
@@ -57,14 +57,14 @@ AC_ARG_WITH([gurobi], AS_HELP_STRING([--with-gurobi], [support Gurobi optimizer]
       CPPFLAGS="-I${with_gurobi}/include $CPPFLAGS"
       LDFLAGS="-L${with_gurobi}/lib $LDFLAGS"
     fi
+    AC_CHECK_HEADERS([gurobi_c++.h])
+    AC_CHECK_LIB([gurobi46], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi46 $LIBS")
+    AC_CHECK_LIB([gurobi50], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi50 $LIBS")
+    AC_CHECK_LIB([gurobi51], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi51 $LIBS")
+    AC_CHECK_LIB([gurobi55], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi55 $LIBS")
+    AC_CHECK_LIB([gurobi56], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi56 $LIBS")
   fi
 )
-AC_CHECK_HEADERS([gurobi_c++.h])
-AC_CHECK_LIB([gurobi46], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi46 $LIBS")
-AC_CHECK_LIB([gurobi50], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi50 $LIBS")
-AC_CHECK_LIB([gurobi51], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi51 $LIBS")
-AC_CHECK_LIB([gurobi55], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi55 $LIBS")
-AC_CHECK_LIB([gurobi56], [GRBloadenv], LIBS="-lgurobi_c++ -lgurobi56 $LIBS")
 
 
 # Vienna RNA package

@@ -96,8 +96,8 @@ public:
       num_shuffling_(0),
       seed_(0),
       in_pk_(true),
-      use_contrafold_(true),
-      use_pf_duplex_(true),
+      use_contrafold_(false),
+      use_pf_duplex_(false),
       stacking_constraints_(true),
       show_energy_(false),
       run_with_modena_(false),
@@ -1245,8 +1245,8 @@ parse_options(int& argc, char**& argv)
   num_shuffling_ = args_info.num_shuffling_arg;
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
-  use_contrafold_ = args_info.mccaskill_flag==0;
-  use_pf_duplex_ = args_info.cofold_flag==0;
+  use_contrafold_ = args_info.contrafold_flag==1;
+  use_pf_duplex_ = args_info.duplex_flag==1;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
   //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;
