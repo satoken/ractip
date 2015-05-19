@@ -37,16 +37,16 @@ const char *gengetopt_args_info_full_help[] = {
   "  -h, --help                 Print help and exit",
   "      --full-help            Print help, including hidden options, and exit",
   "  -V, --version              Print version and exit",
-  "  -a, --alpha=FLOAT          weight for hybridization  (default=`0.6')",
+  "  -a, --alpha=FLOAT          weight for hybridization  (default=`0.7')",
   "  -b, --beta=FLOAT           weight for accessibility  (default=`0.0')",
-  "  -t, --fold-th=FLOAT        Threshold for base-pairing probabilities\n                               (default=`0.8')",
-  "  -u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities\n                               (default=`0.3')",
-  "  -s, --acc-th=FLOAT         Threshold for accessible probabilities\n                               (default=`0.005')",
+  "  -t, --fold-th=FLOAT        Threshold for base-pairing probabilities\n                               (default=`0.5')",
+  "  -u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities\n                               (default=`0.1')",
+  "  -s, --acc-th=FLOAT         Threshold for accessible probabilities\n                               (default=`0.003')",
   "      --acc-max              optimize for accessibility instead of internal\n                               secondary structures  (default=off)",
   "      --acc-max-ss           additional prediction of interanal secondary\n                               structures  (default=off)",
   "      --acc-num=INT          the number of accessible regions (0=unlimited)\n                               (default=`1')",
   "      --max-w=INT            Maximum length of accessible regions\n                               (default=`15')",
-  "      --min-w=INT            Minimum length of accessible regions\n                               (default=`7')",
+  "      --min-w=INT            Minimum length of accessible regions\n                               (default=`5')",
   "      --zscore=INT           Calculate z-score via dishuffling (0=no shuffling,\n                               1=1st seq only, 2=2nd seq only, or 12=both)\n                               (default=`0')",
   "      --num-shuffling=INT    The number of shuffling  (default=`1000')",
   "      --seed=INT             Seed for random number generator  (default=`0')",
@@ -142,15 +142,15 @@ static
 void clear_args (struct gengetopt_args_info *args_info)
 {
   FIX_UNUSED (args_info);
-  args_info->alpha_arg = 0.6;
+  args_info->alpha_arg = 0.7;
   args_info->alpha_orig = NULL;
   args_info->beta_arg = 0.0;
   args_info->beta_orig = NULL;
-  args_info->fold_th_arg = 0.8;
+  args_info->fold_th_arg = 0.5;
   args_info->fold_th_orig = NULL;
-  args_info->hybridize_th_arg = 0.3;
+  args_info->hybridize_th_arg = 0.1;
   args_info->hybridize_th_orig = NULL;
-  args_info->acc_th_arg = 0.005;
+  args_info->acc_th_arg = 0.003;
   args_info->acc_th_orig = NULL;
   args_info->acc_max_flag = 0;
   args_info->acc_max_ss_flag = 0;
@@ -158,7 +158,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->acc_num_orig = NULL;
   args_info->max_w_arg = 15;
   args_info->max_w_orig = NULL;
-  args_info->min_w_arg = 7;
+  args_info->min_w_arg = 5;
   args_info->min_w_orig = NULL;
   args_info->zscore_arg = 0;
   args_info->zscore_orig = NULL;
@@ -707,7 +707,7 @@ cmdline_parser_internal (
         
           if (update_arg( (void *)&(args_info->alpha_arg), 
                &(args_info->alpha_orig), &(args_info->alpha_given),
-              &(local_args_info.alpha_given), optarg, 0, "0.6", ARG_FLOAT,
+              &(local_args_info.alpha_given), optarg, 0, "0.7", ARG_FLOAT,
               check_ambiguity, override, 0, 0,
               "alpha", 'a',
               additional_error))
@@ -731,7 +731,7 @@ cmdline_parser_internal (
         
           if (update_arg( (void *)&(args_info->fold_th_arg), 
                &(args_info->fold_th_orig), &(args_info->fold_th_given),
-              &(local_args_info.fold_th_given), optarg, 0, "0.8", ARG_FLOAT,
+              &(local_args_info.fold_th_given), optarg, 0, "0.5", ARG_FLOAT,
               check_ambiguity, override, 0, 0,
               "fold-th", 't',
               additional_error))
@@ -743,7 +743,7 @@ cmdline_parser_internal (
         
           if (update_arg( (void *)&(args_info->hybridize_th_arg), 
                &(args_info->hybridize_th_orig), &(args_info->hybridize_th_given),
-              &(local_args_info.hybridize_th_given), optarg, 0, "0.3", ARG_FLOAT,
+              &(local_args_info.hybridize_th_given), optarg, 0, "0.1", ARG_FLOAT,
               check_ambiguity, override, 0, 0,
               "hybridize-th", 'u',
               additional_error))
@@ -755,7 +755,7 @@ cmdline_parser_internal (
         
           if (update_arg( (void *)&(args_info->acc_th_arg), 
                &(args_info->acc_th_orig), &(args_info->acc_th_given),
-              &(local_args_info.acc_th_given), optarg, 0, "0.005", ARG_FLOAT,
+              &(local_args_info.acc_th_given), optarg, 0, "0.003", ARG_FLOAT,
               check_ambiguity, override, 0, 0,
               "acc-th", 's',
               additional_error))
@@ -863,7 +863,7 @@ cmdline_parser_internal (
           
             if (update_arg( (void *)&(args_info->min_w_arg), 
                  &(args_info->min_w_orig), &(args_info->min_w_given),
-                &(local_args_info.min_w_given), optarg, 0, "7", ARG_INT,
+                &(local_args_info.min_w_given), optarg, 0, "5", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "min-w", '-',
                 additional_error))

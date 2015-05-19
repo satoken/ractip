@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.15])
-AC_INIT([ractip], [1.0.0], [satoken@bio.keio.ac.jp])
+AC_INIT([ractip], [1.0.1], [satoken@bio.keio.ac.jp])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_SRCDIR([src/ractip.cpp])

@@ -44,19 +44,19 @@ struct gengetopt_args_info
   const char *help_help; /**< @brief Print help and exit help description.  */
   const char *full_help_help; /**< @brief Print help, including hidden options, and exit help description.  */
   const char *version_help; /**< @brief Print version and exit help description.  */
-  float alpha_arg;	/**< @brief weight for hybridization (default='0.6').  */
+  float alpha_arg;	/**< @brief weight for hybridization (default='0.7').  */
   char * alpha_orig;	/**< @brief weight for hybridization original value given at command line.  */
   const char *alpha_help; /**< @brief weight for hybridization help description.  */
   float beta_arg;	/**< @brief weight for accessibility (default='0.0').  */
   char * beta_orig;	/**< @brief weight for accessibility original value given at command line.  */
   const char *beta_help; /**< @brief weight for accessibility help description.  */
-  float fold_th_arg;	/**< @brief Threshold for base-pairing probabilities (default='0.8').  */
+  float fold_th_arg;	/**< @brief Threshold for base-pairing probabilities (default='0.5').  */
   char * fold_th_orig;	/**< @brief Threshold for base-pairing probabilities original value given at command line.  */
   const char *fold_th_help; /**< @brief Threshold for base-pairing probabilities help description.  */
-  float hybridize_th_arg;	/**< @brief Threshold for hybridazation probabilities (default='0.3').  */
+  float hybridize_th_arg;	/**< @brief Threshold for hybridazation probabilities (default='0.1').  */
   char * hybridize_th_orig;	/**< @brief Threshold for hybridazation probabilities original value given at command line.  */
   const char *hybridize_th_help; /**< @brief Threshold for hybridazation probabilities help description.  */
-  float acc_th_arg;	/**< @brief Threshold for accessible probabilities (default='0.005').  */
+  float acc_th_arg;	/**< @brief Threshold for accessible probabilities (default='0.003').  */
   char * acc_th_orig;	/**< @brief Threshold for accessible probabilities original value given at command line.  */
   const char *acc_th_help; /**< @brief Threshold for accessible probabilities help description.  */
   int acc_max_flag;	/**< @brief optimize for accessibility instead of internal secondary structures (default=off).  */
@@ -69,7 +69,7 @@ struct gengetopt_args_info
   int max_w_arg;	/**< @brief Maximum length of accessible regions (default='15').  */
   char * max_w_orig;	/**< @brief Maximum length of accessible regions original value given at command line.  */
   const char *max_w_help; /**< @brief Maximum length of accessible regions help description.  */
-  int min_w_arg;	/**< @brief Minimum length of accessible regions (default='7').  */
+  int min_w_arg;	/**< @brief Minimum length of accessible regions (default='5').  */
   char * min_w_orig;	/**< @brief Minimum length of accessible regions original value given at command line.  */
   const char *min_w_help; /**< @brief Minimum length of accessible regions help description.  */
   int zscore_arg;	/**< @brief Calculate z-score via dishuffling (0=no shuffling, 1=1st seq only, 2=2nd seq only, or 12=both) (default='0').  */

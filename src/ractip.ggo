@@ -5,15 +5,15 @@ args "-u"
 purpose "RactIP: RNA-RNA interation prediction using integer programming."
 
 option "alpha"	 	 a "weight for hybridization"
-			   float default="0.6" optional
+			   float default="0.7" optional
 option "beta"	 	 b "weight for accessibility"
 			   float default="0.0" optional
 option "fold-th"	 t "Threshold for base-pairing probabilities"
-			   float default="0.8" optional
+			   float default="0.5" optional
 option "hybridize-th"	 u "Threshold for hybridazation probabilities"
-			   float default="0.3" optional
+			   float default="0.1" optional
 option "acc-th"		 s "Threshold for accessible probabilities"
-       			   float default="0.005" optional
+       			   float default="0.003" optional
 option "acc-max"	 - "optimize for accessibility instead of internal secondary structures"
        			   flag off
 option "acc-max-ss"	 - "additional prediction of interanal secondary structures"
@@ -23,7 +23,7 @@ option "acc-num"	 - "the number of accessible regions (0=unlimited)"
 option "max-w"		 - "Maximum length of accessible regions"
        			   int default="15" optional
 option "min-w"		 - "Minimum length of accessible regions"
-       			   int default="7" optional
+       			   int default="5" optional
 option "zscore"		 - "Calculate z-score via dishuffling (0=no shuffling, 1=1st seq only, 2=2nd seq only, or 12=both)"
        			   int default="0" optional
 option "num-shuffling"	 - "The number of shuffling"
