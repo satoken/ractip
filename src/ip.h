@@ -32,6 +32,7 @@ public:
   IP(DirType dir, int n_th);
   ~IP();
   int make_variable(double coef);
+  int make_variable(double coef, int lo, int hi);
   int make_constraint(BoundType bnd, double l, double u);
   void add_constraint(int row, int col, double val);
   void update();

@@ -24,15 +24,19 @@
 #include "ip.h"
 #include <vector>
 #include <cassert>
+#include <stdexcept>
 #ifdef WITH_GLPK
 #include <glpk.h>
 #endif
 #ifdef WITH_CPLEX
-#include <ilcplex/ilocplex.h>
+extern "C" {
+#include <ilcplex/cplex.h>
+};
 #endif
 #ifdef WITH_GUROBI
 #include "gurobi_c++.h"
 #endif
+#include <cfloat>
 
 #ifdef WITH_GLPK
 class IPimpl
@@ -59,6 +63,15 @@ public:
     int col = glp_add_cols(ip_, 1);
     glp_set_col_bnds(ip_, col, GLP_DB, 0, 1);
     glp_set_col_kind(ip_, col, GLP_BV);
+    glp_set_obj_coef(ip_, col, coef);
+    return col;
+  }
+
+  int make_variable(double coef, int lo, int hi)
+  {
+    int col = glp_add_cols(ip_, 1);
+    glp_set_col_bnds(ip_, col, GLP_DB, lo, hi);
+    glp_set_col_kind(ip_, col, GLP_IV);
     glp_set_obj_coef(ip_, col, coef);
     return col;
   }
@@ -203,96 +216,146 @@ class IPimpl
 {
 public:
   IPimpl(IP::DirType dir, int n_th)
-    : env_(), model_(env_), obj_(env_), vars_(env_), cplex_(NULL), dir_(dir), n_th_(n_th)
+    : env_(NULL), lp_(NULL), dir_(dir)
   {
+    int status;
+    env_ = CPXopenCPLEX(&status);
+    if (env_==NULL)
+    {
+      char errmsg[CPXMESSAGEBUFSIZE];
+      CPXgeterrorstring (env_, status, errmsg);
+      throw std::runtime_error(errmsg);
+    }
+    status = CPXsetintparam(env_, CPXPARAM_Threads, n_th);
   }
 
   ~IPimpl()
   {
-    delete cplex_;
-    env_.end();
+    if (lp_) CPXfreeprob(env_, &lp_);
+    if (env_) CPXcloseCPLEX(&env_);
   }
 
   int make_variable(double coef)
   {
-    int col = vars_.getSize();
-    vars_.add(IloBoolVar(env_));
-    obj_ += coef * vars_[col];
+    int col = vars_.size();
+    vars_.push_back('B');
+    coef_.push_back(coef);
+    vlb_.push_back(0.0);
+    vub_.push_back(1.0);
     return col;
   }
 
+  int make_variable(double coef, int lo, int hi)
+  {
+    int col = vars_.size();
+    vars_.push_back('I');
+    coef_.push_back(coef);
+    vlb_.push_back(lo);
+    vub_.push_back(hi);
+    return col;
+  }
+ 
   int make_constraint(IP::BoundType bnd, double l, double u)
   {
-    bnd_.push_back(bnd);
-    l_.push_back(l);
-    u_.push_back(u);
-    m_.resize(m_.size()+1);
-    return m_.size()-1;
+    int row = bnd_.size();
+    bnd_.resize(bnd_.size()+1);
+    rhs_.resize(rhs_.size()+1);
+    rngval_.resize(rngval_.size()+1);
+    switch (bnd)
+    {
+      case IP::LO: bnd_[row]='G'; rhs_[row]=l; break;
+      case IP::UP: bnd_[row]='L'; rhs_[row]=u; break;
+      case IP::DB: bnd_[row]='R'; rhs_[row]=l; rngval_[row]=u-l; break;
+      case IP::FX: bnd_[row]='E'; rhs_[row]=l; break;
+      case IP::FR: bnd_[row]='R'; rhs_[row]=DBL_MIN; rngval_[row]=DBL_MAX; break;
+    }
+    return row;
   }
 
   void add_constraint(int row, int col, double val)
   {
-    m_[row].push_back(std::make_pair(col, val));
+    m_[col].push_back(std::make_pair(row, val));
   }
 
   void update()
   {
-    switch (dir_)
-    {
-      case IP::MAX: model_.add(IloMaximize(env_, obj_)); break;
-      case IP::MIN: model_.add(IloMinimize(env_, obj_)); break;
-    }
+    m_.resize(vars_.size());
   }
 
   double solve()
   {
-    for (unsigned int i=0; i!=m_.size(); ++i)
+    const int numcols = vars_.size();
+    const int numrows = bnd_.size();
+
+    int status;
+    lp_ = CPXcreateprob(env_, &status, "PRactIP");
+    if (lp_==NULL) 
+      throw std::runtime_error("failed to create LP");
+    
+    unsigned int n_nonzero=0;
+    for (unsigned int i=0; i!=m_.size(); ++i) 
+      n_nonzero += m_[i].size();
+    std::vector<int> matbeg(numcols, 0);
+    std::vector<int> matcnt(numcols, 0);
+    std::vector<int> matind(n_nonzero);
+    std::vector<double> matval(n_nonzero);
+    for (unsigned int i=0, k=0; i!=m_.size(); ++i) 
     {
-      IloExpr c(env_);
-      for (unsigned int j=0; j!=m_[i].size(); ++j)
-        c += vars_[m_[i][j].first] * m_[i][j].second;
-      switch (bnd_[i])
+      matbeg[i] = i==0 ? 0 : matbeg[i-1]+matcnt[i-1];
+      matcnt[i] = m_[i].size();
+      for (unsigned int j=0; j!=m_[i].size(); ++j, ++k)
       {
-        case IP::LO: model_.add(c >= l_[i]); break;
-        case IP::UP: model_.add(c <= u_[i]); break;
-        case IP::DB: model_.add(c >= l_[i]); model_.add(c <= u_[i]); break;
-        case IP::FX: model_.add(c == l_[i]); break;
+        matind[k] = m_[i][j].first;
+        matval[k] = m_[i][j].second;
       }
     }
-    bnd_.clear();
-    l_.clear();
-    u_.clear();
     m_.clear();
 
-    cplex_ = new IloCplex(model_);
-    cplex_->setParam(IloCplex::Threads, n_th_);
-    cplex_->setParam(IloCplex::MIPDisplay, 0);
-    cplex_->setParam(IloCplex::TuningDisplay, 0);
-    cplex_->setParam(IloCplex::BarDisplay, 0);
-    cplex_->setParam(IloCplex::NetDisplay, 0);
-    cplex_->setParam(IloCplex::SiftDisplay, 0);
-    cplex_->setParam(IloCplex::SimDisplay, 0);
-    cplex_->solve();
-    return cplex_->getObjValue();
+    status = CPXcopylp(env_, lp_, numcols, numrows,
+                        dir_==IP::MIN ? CPX_MIN : CPX_MAX,
+                        &coef_[0], &rhs_[0], &bnd_[0], 
+                        &matbeg[0], &matcnt[0], &matind[0], &matval[0],
+                        &vlb_[0], &vub_[0], &rngval_[0] );
+    vlb_.clear();
+    vub_.clear();
+
+    status = CPXcopyctype(env_, lp_, &vars_[0]);
+    vars_.clear();
+
+    CPXsetintparam(env_, CPXPARAM_MIP_Display, 0);
+    CPXsetintparam(env_, CPXPARAM_Barrier_Display, 0);
+    CPXsetintparam(env_, CPXPARAM_Tune_Display, 0);
+    CPXsetintparam(env_, CPXPARAM_Network_Display, 0);
+    CPXsetintparam(env_, CPXPARAM_Sifting_Display, 0);
+    CPXsetintparam(env_, CPXPARAM_Simplex_Display, 0);
+
+    status = CPXmipopt(env_, lp_);
+    double objval;
+    status = CPXgetobjval(env_, lp_, &objval);
+    res_cols_.resize(CPXgetnumcols(env_, lp_));
+    status = CPXgetx(env_, lp_, &res_cols_[0], 0, res_cols_.size()-1);
+
+    return objval;
   }
 
   double get_value(int col) const
   {
-    return cplex_->getValue(vars_[col]);
+    return res_cols_[col];
   }
 
 private:
-  IloEnv env_;
-  IloModel model_;
-  IloExpr obj_;
-  IloBoolVarArray vars_;
-  IloCplex* cplex_;
-  std::vector< std::vector< std::pair<int,double> > > m_;
-  std::vector<int> bnd_;
-  std::vector<double> l_;
-  std::vector<double> u_;
+  CPXENVptr env_;
+  CPXLPptr lp_;
   IP::DirType dir_;
-  int n_th_;
+  std::vector<char> vars_;
+  std::vector<double> coef_;
+  std::vector<double> vlb_;
+  std::vector<double> vub_;
+  std::vector<char> bnd_;
+  std::vector<double> rhs_;
+  std::vector<double> rngval_;
+  std::vector< std::vector< std::pair<int,double> > > m_;
+  std::vector<double> res_cols_;
 };
 #endif  // WITH_CPLEX
 
@@ -315,6 +378,13 @@ IP::
 make_variable(double coef)
 {
   return impl_->make_variable(coef);
+}
+
+int
+IP::
+make_variable(double coef, int lo, int hi)
+{
+  return impl_->make_variable(coef, lo, hi);
 }
 
 int
