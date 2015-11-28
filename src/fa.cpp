@@ -28,6 +28,7 @@
 #include <string>
 #include <cctype>
 #include <cstring>
+#include <cassert>
 
 //static
 unsigned int
@@ -39,6 +40,7 @@ load(std::list<Fasta>& data, const char* file)
   while (std::getline(ifs, line)) {
     if (line[0]=='>') {         // header
       if (!name.empty()) {
+        assert(str.size()==0 || seq.size()==str.size());
 #if 0
         std::cout << "name: " << name << std::endl
                   << " seq: " << seq << std::endl
@@ -50,19 +52,20 @@ load(std::list<Fasta>& data, const char* file)
       name=line.substr(1);
       continue;
     } 
-    uint i;
-    for (i=0; i!=line.size(); ++i)
-      if (!std::isalpha(line[i])) break;
-    if (i==line.size()) {       // seq
-      seq+=line;
-      continue;
-    }
-    
-    for (i=0; i!=line.size(); ++i)
-      if (std::strchr("()[].?x", line[i])==NULL) break;
-    if (i==line.size()) str+=line; // str
-  }
 
+    if (std::strchr("()[].?x ", line[0])==NULL) { // seq
+      uint i;
+      for (i=0; i!=line.size(); ++i)
+        if (!isalpha(line[i])) break;
+      seq+=line.substr(0, i);
+    } else {
+      uint i;
+      for (i=0; i!=line.size(); ++i)
+        if (std::strchr("()[].?x ", line[i])==NULL) break;
+      str+=line.substr(0, i);
+    }
+  }
+  
   if (!name.empty()) {
 #if 0
     std::cout << "name: " << name << std::endl
