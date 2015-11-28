@@ -50,6 +50,8 @@ load(std::list<Fasta>& data, const char* file)
       }
 
       name=line.substr(1);
+      seq.clear();
+      str.clear();
       continue;
     } 
 
