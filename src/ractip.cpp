@@ -505,6 +505,8 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
 {
   const std::string& s1=fa1.seq();
   const std::string& s2=fa2.seq();
+  const std::string& str1=fa1.str();
+  const std::string& str2=fa2.str();
   IP ip(IP::MAX, n_th_);
   bool enable_accessibility = min_w_>1 && max_w_>=min_w_;
   bool enable_structure_s1 = !acc_max_;
@@ -631,6 +633,130 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
   {
     w_st[i] = ip.make_variable(0.0);
     w_en[i] = ip.make_variable(0.0);
+  }
+
+  if (force_constraint_)
+  {
+    std::stack<int> st_x, st_y, st_z;
+    for (uint i=0; i!=str1.size(); ++i)
+    {
+      switch (str1[i]) 
+      {
+        case '(': 
+          st_x.push(i); 
+          break;
+        case ')':
+          if (x[st_x.top()][i]<0)
+          {
+            const int j=st_x.top();
+            const float& p=bp1_[offset1_[j+1]+(i+1)];
+            x[i][j] = x[j][i] = ip.make_variable(p-th_ss_);
+            xx[j].push_back(i);
+          }
+          st_x.pop();
+          break;
+        case 'l':
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            if (x[i][j]<0)
+            {
+              if (i<j)
+              {
+                const float& p=bp1_[offset1_[i+1]+(j+1)];
+                x[i][j] = x[j][i] = ip.make_variable(p-th_ss_);
+                xx[i].push_back(j);
+              } 
+              else
+              {
+                const float& p=bp1_[offset1_[j+1]+(i+1)];
+                x[i][j] = x[j][i] = ip.make_variable(p-th_ss_);
+                xx[j].push_back(i);
+              }
+            }
+          }
+          break;
+        case 'e':
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            if (z[i][j]<0)
+            {
+              const float& p=hp_[i+1][j+1];
+              z[i][j] = ip.make_variable(alpha_*(p-th_hy_));
+              zz[i].push_back(j);
+            }
+          }
+          break;
+        case '[':
+          st_z.push(i);
+          break;
+        default:
+          break;
+      }
+    }
+    for (uint i=0; i!=str2.size(); ++i)
+    {
+      switch (str2[i]) 
+      {
+        case '(': 
+          st_y.push(i); 
+          break;
+        case ')': 
+          if (y[st_y.top()][i]<0)
+          {
+            const int j=st_y.top();
+            const float& p=bp2_[offset2_[j+1]+(i+1)];
+            y[i][j] = y[j][i] = ip.make_variable(p-th_ss_);
+            yy[j].push_back(i);
+          }
+          st_y.pop();
+          break;
+        case 'l':
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            if (y[i][j]<0)
+            {
+              if (i<j)
+              {
+                const float& p=bp2_[offset2_[i+1]+(j+1)];
+                y[i][j] = y[j][i] = ip.make_variable(p-th_ss_);
+                yy[i].push_back(j);
+              } 
+              else
+              {
+                const float& p=bp2_[offset2_[j+1]+(i+1)];
+                y[i][j] = y[j][i] = ip.make_variable(p-th_ss_);
+                yy[j].push_back(i);
+              }
+            }
+          }
+          break;
+        case 'e':
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            if (z[j][i]<0)
+            {
+              const float& p=hp_[j+1][i+1];
+              z[j][i] = ip.make_variable(alpha_*(p-th_hy_));
+              zz[j].push_back(i);
+            }
+          }
+          break;
+
+        case ']':
+          std::cout << st_z.top() << " " << i << " " << hp_[st_z.top()+1][i+1] << std::endl;
+          if (z[st_z.top()][i]<0)
+          {
+            const int j=st_z.top();
+            const float& p=hp_[j+1][i+1];
+            z[j][i] = ip.make_variable(alpha_*(p-th_hy_));
+            zz[j].push_back(i);
+          }
+          st_z.pop(); 
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   ip.update();
@@ -1091,9 +1217,9 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
   if (force_constraint_)
   {
     std::stack<int> st_x, st_y, st_z;
-    for (uint i=0; i!=s1.size(); ++i)
+    for (uint i=0; i!=str1.size(); ++i)
     {
-      switch (s1[i]) 
+      switch (str1[i]) 
       {
         case '(': 
           st_x.push(i); 
@@ -1106,6 +1232,7 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
           }
           st_x.pop();
           break;
+#if 0
         case 'x':
           for (uint j=0; j!=s1.size(); ++j)
           {
@@ -1148,6 +1275,7 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
               ip.add_constraint(row, z[i][j], 1);
           }
           break;
+#endif
         case '[':
           st_z.push(i);
           break;
@@ -1155,9 +1283,9 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
           break;
       }
     }
-    for (uint i=0; i!=s2.size(); ++i)
+    for (uint i=0; i!=str2.size(); ++i)
     {
-      switch (s2[i]) 
+      switch (str2[i]) 
       {
         case '(': 
           st_y.push(i); 
@@ -1170,6 +1298,7 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
           }
           st_y.pop();
           break;
+#if 0
         case 'x':
           for (uint j=0; j!=s2.size(); ++j)
           {
@@ -1212,11 +1341,15 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
               ip.add_constraint(row, z[j][i], 1);
           }
           break;
+#endif
         case ']':
           if (z[st_z.top()][i]>=0)
           {
+#if 1
+            std::cout << st_z.top() << " " << i << std::endl;
             int row = ip.make_constraint(IP::FX, 1, 1);
             ip.add_constraint(row, z[st_z.top()][i], 1);
+#endif
           }
           st_z.pop(); 
           break;
