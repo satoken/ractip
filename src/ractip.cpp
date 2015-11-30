@@ -131,8 +131,8 @@ public:
 private:
   void contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const;
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
-  void rnafold(const std::string& seq, VF& bp, VI& offset) const;
-  void rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const;
+  void rnafold(const Fasta& fa, VF& bp, VI& offset) const;
+  void rnafold(const Fasta& fa, VF& bp, VI& offset, VVF& up, uint max_w) const;
   void rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const;
   void load_from_rip(const char* filename,
                      const std::string& s1, const std::string& s2,
@@ -230,8 +230,9 @@ contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const
 
 void
 RactIP::
-rnafold(const std::string& seq, VF& bp, VI& offset) const
+rnafold(const Fasta& fa, VF& bp, VI& offset) const
 {
+  const std::string& seq=fa.seq();
   uint L=seq.size();
   bp.resize((L+1)*(L+2)/2);
   offset.resize(L+1);
@@ -249,7 +250,30 @@ rnafold(const std::string& seq, VF& bp, VI& offset) const
 #ifndef HAVE_VIENNA20
   Vienna::init_pf_fold(L);
 #endif
-  Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  if (use_constraint_) 
+  {
+    int fc_back=Vienna::fold_constrained;
+    Vienna::fold_constrained=1;
+    const std::string& str=fa.str();
+    std::string c(seq.size(), '.');
+    for (uint i=0; i!=str.size() && i!=seq.size(); ++i)
+    {
+      switch (str[i])
+      {
+        case '[':
+        case ']':
+          c[i]='x'; break;
+        default: 
+          c[i]=str[i]; break;
+      }
+    }
+    Vienna::pf_fold(const_cast<char*>(seq.c_str()), const_cast<char*>(&c[0]));
+    Vienna::fold_constrained=fc_back;
+  }
+  else
+  {
+    Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  }
 #ifdef HAVE_VIENNA20
   FLT_OR_DBL* pr = Vienna::export_bppm();
   int* iindx = Vienna::get_iindx(seq.size());
@@ -265,8 +289,9 @@ rnafold(const std::string& seq, VF& bp, VI& offset) const
 
 void
 RactIP::
-rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
+rnafold(const Fasta& fa, VF& bp, VI& offset, VVF& up, uint max_w) const
 {
+  const std::string& seq=fa.seq();
   uint L=seq.size();
   bp.resize((L+1)*(L+2)/2);
   offset.resize(L+1);
@@ -284,7 +309,33 @@ rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
 #ifndef HAVE_VIENNA20
   Vienna::init_pf_fold(L);
 #endif
-  Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  if (use_constraint_) 
+  {
+    int fc_bak=Vienna::fold_constrained;
+    Vienna::fold_constrained=1;
+    const std::string& str=fa.str();
+    std::string c(seq.size(), '.');
+    for (uint i=0; i!=str.size() && i!=seq.size(); ++i)
+    {
+      switch (str[i])
+      {
+        case '[':
+        case ']':
+          c[i]='x'; break;
+        default: 
+          c[i]=str[i]; break;
+      }
+    }
+#if 0
+    std::cout << c << std::endl;
+#endif
+    Vienna::pf_fold(const_cast<char*>(seq.c_str()), const_cast<char*>(&c[0]));
+    Vienna::fold_constrained=fc_bak;
+  }
+  else
+  {
+    Vienna::pf_fold(const_cast<char*>(seq.c_str()), NULL);
+  }
 #ifdef HAVE_VIENNA20
   FLT_OR_DBL* pr = Vienna::export_bppm();
   int* iindx = Vienna::get_iindx(seq.size());
@@ -296,6 +347,7 @@ rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
     for (uint j=i+1; j!=L; ++j)
       bp[offset[i+1]+(j+1)] = pr[iindx[i+1]-(j+1)];
 
+  // accessibility
   up.resize(L, VF(max_w));
   Vienna::pu_contrib* pu = Vienna::pf_unstru(const_cast<char*>(seq.c_str()), max_w);
   assert((int)L==pu->length);
@@ -328,10 +380,44 @@ rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
   }
   else
   {
+    int fc_bak=Vienna::fold_constrained;
+    Vienna::fold_constrained=1;
     hp.clear();
     hp.resize(s1.size()+1, VF(s2.size()+1, 0.0));
     std::string s=s1+s2;
     std::string c(s.size(), 'e');
+    if (use_constraint_)
+    {
+      const std::string str1=fa1.str();
+      const std::string str2=fa2.str();
+      for (uint i=0; i!=str1.size() && i!=s1.size(); ++i)
+      {
+        switch (str1[i])
+        {
+          case '[': c[i]='('; break;
+          case '(':
+          case ')':
+          case 'x': c[i]='x'; break;
+          default: break;
+        }
+      }
+      for (uint i=0; i!=str2.size() && i!=s2.size(); ++i)
+      {
+        switch (str2[i])
+        {
+          case ']': c[s1.size()+i]=')'; break;
+          case '(':
+          case ')':
+          case 'x': c[s1.size()+i]='x'; break;
+          default: break;
+        }
+      }
+#if 0
+      std::cout << c.substr(0, s1.size()) << std::endl
+                << c.substr(s1.size()) << std::endl;
+#endif
+    }
+
     Vienna::pf_scale = -1;
     Vienna::cut_point = s1.size()+1;
     Vienna::co_pf_fold(const_cast<char*>(s.c_str()), const_cast<char*>(c.c_str()));
@@ -347,6 +433,7 @@ rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
     if (pi) free(pi);
     Vienna::free_co_pf_arrays();
     Vienna::cut_point = -1;
+    Vienna::fold_constrained=fc_bak;
   }
 }
 
@@ -431,8 +518,8 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
   }
   else
   {
-    rnafold(s1, bp1_, offset1_, up1_, std::max(1, max_w_));
-    rnafold(s2, bp2_, offset2_, up2_, std::max(1, max_w_));
+    rnafold(fa1, bp1_, offset1_, up1_, std::max(1, max_w_));
+    rnafold(fa2, bp2_, offset2_, up2_, std::max(1, max_w_));
     rnaduplex(fa1, fa2, hp_);
   }
   

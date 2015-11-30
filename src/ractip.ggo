@@ -32,8 +32,8 @@ option "seed"		 - "Seed for random number generator"
        			   int default="0" optional
 # option "mccaskill"	 m "Use McCaskill model for folding"
 #			   flag off
-option "contrafold"	 - "Use CONTRAfold model for folding"
-       			   flag off hidden
+# option "contrafold"	 - "Use CONTRAfold model for folding"
+#        			   flag off hidden
 option "use-constraint"	 c "Use structure constraints"
        			   flag off hidden
 option "allow-isolated"  - "Allow isolated base-pairs"
@@ -48,8 +48,8 @@ option "rip"		 r "Import posterior probabilities from the result of RIP"
        			   string typestr="FILENAME" optional hidden
 # option "cofold"	 	 - "Use co_pf_fold routine"
 #       			   flag off hidden
-option "duplex"	 	 - "Use pf_duplex routine"
-      			   flag off hidden
+# option "duplex"	 	 - "Use pf_duplex routine"
+#       			   flag off hidden
 # option "modena"	 - "Run with MODENA"
 #        		   flag off hidden
 option "no-bl"	 	 - "do not use BL parameters"
