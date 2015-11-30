@@ -99,6 +99,7 @@ public:
       use_contrafold_(false),
       use_pf_duplex_(false),
       use_constraint_(false),
+      force_constraint_(false),
       stacking_constraints_(true),
       show_energy_(false),
       run_with_modena_(false),
@@ -157,6 +158,7 @@ private:
   bool use_contrafold_;        // use CONTRAfold model or not
   bool use_pf_duplex_;
   bool use_constraint_;
+  bool force_constraint_;
   bool stacking_constraints_;
   bool show_energy_;
   bool run_with_modena_;
@@ -262,6 +264,7 @@ rnafold(const Fasta& fa, VF& bp, VI& offset) const
       {
         case '[':
         case ']':
+        case 'e':
           c[i]='x'; break;
         default: 
           c[i]=str[i]; break;
@@ -321,6 +324,7 @@ rnafold(const Fasta& fa, VF& bp, VI& offset, VVF& up, uint max_w) const
       {
         case '[':
         case ']':
+        case 'e':
           c[i]='x'; break;
         default: 
           c[i]=str[i]; break;
@@ -397,6 +401,7 @@ rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
           case '[': c[i]='('; break;
           case '(':
           case ')':
+          case 'l':
           case 'x': c[i]='x'; break;
           default: break;
         }
@@ -408,6 +413,7 @@ rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
           case ']': c[s1.size()+i]=')'; break;
           case '(':
           case ')':
+          case 'l':
           case 'x': c[s1.size()+i]='x'; break;
           default: break;
         }
@@ -1082,6 +1088,144 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
     }
   }
 
+  if (force_constraint_)
+  {
+    std::stack<int> st_x, st_y, st_z;
+    for (uint i=0; i!=s1.size(); ++i)
+    {
+      switch (s1[i]) 
+      {
+        case '(': 
+          st_x.push(i); 
+          break;
+        case ')':
+          if (x[st_x.top()][i]>=0)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            ip.add_constraint(row, x[st_x.top()][i], 1);
+          }
+          st_x.pop();
+          break;
+        case 'x':
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (x[i][j]>=0) 
+              ip.add_constraint(row, x[i][j], 1);
+          }
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (z[i][j]>=0)
+              ip.add_constraint(row, z[i][j], 1);
+          }
+          break;
+        case 'l':
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            if (x[i][j]>=0) 
+              ip.add_constraint(row, x[i][j], 1);
+          }
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (z[i][j]>=0)
+              ip.add_constraint(row, z[i][j], 1);
+          }
+          break;
+        case 'e':
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (x[i][j]>=0) 
+              ip.add_constraint(row, x[i][j], 1);
+          }
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            if (z[i][j]>=0)
+              ip.add_constraint(row, z[i][j], 1);
+          }
+          break;
+        case '[':
+          st_z.push(i);
+          break;
+        default:
+          break;
+      }
+    }
+    for (uint i=0; i!=s2.size(); ++i)
+    {
+      switch (s2[i]) 
+      {
+        case '(': 
+          st_y.push(i); 
+          break;
+        case ')': 
+          if (y[st_y.top()][i]>=0)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            ip.add_constraint(row, y[st_y.top()][i], 1);
+          }
+          st_y.pop();
+          break;
+        case 'x':
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (y[i][j]>=0) 
+              ip.add_constraint(row, y[i][j], 1);
+          }
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (z[j][i]>=0)
+              ip.add_constraint(row, z[j][i], 1);
+            }
+          break;
+        case 'l':
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            if (y[i][j]>=0) 
+              ip.add_constraint(row, y[i][j], 1);
+          }
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (z[j][i]>=0)
+              ip.add_constraint(row, z[j][i], 1);
+          }
+          break;
+        case 'e':
+          for (uint j=0; j!=s2.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 0, 0);
+            if (y[i][j]>=0) 
+              ip.add_constraint(row, y[i][j], 1);
+          }
+          for (uint j=0; j!=s1.size(); ++j)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            if (z[j][i]>=0)
+              ip.add_constraint(row, z[j][i], 1);
+          }
+          break;
+        case ']':
+          if (z[st_z.top()][i]>=0)
+          {
+            int row = ip.make_constraint(IP::FX, 1, 1);
+            ip.add_constraint(row, z[st_z.top()][i], 1);
+          }
+          st_z.pop(); 
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   // execute optimization
   float ea = ip.solve();
 
@@ -1338,9 +1482,10 @@ parse_options(int& argc, char**& argv)
   num_shuffling_ = args_info.num_shuffling_arg;
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
-  use_contrafold_ = args_info.contrafold_flag==1;
-  use_pf_duplex_ = args_info.duplex_flag==1;
+  //use_contrafold_ = args_info.contrafold_flag==1;
+  //use_pf_duplex_ = args_info.duplex_flag==1;
   use_constraint_ = args_info.use_constraint_flag==1;
+  force_constraint_ = args_info.force_constraint_flag==1;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
   //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;

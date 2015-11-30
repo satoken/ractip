@@ -81,10 +81,10 @@ struct gengetopt_args_info
   int seed_arg;	/**< @brief Seed for random number generator (default='0').  */
   char * seed_orig;	/**< @brief Seed for random number generator original value given at command line.  */
   const char *seed_help; /**< @brief Seed for random number generator help description.  */
-  int contrafold_flag;	/**< @brief Use CONTRAfold model for folding (default=off).  */
-  const char *contrafold_help; /**< @brief Use CONTRAfold model for folding help description.  */
   int use_constraint_flag;	/**< @brief Use structure constraints (default=off).  */
   const char *use_constraint_help; /**< @brief Use structure constraints help description.  */
+  int force_constraint_flag;	/**< @brief Enforce structure constraints (default=off).  */
+  const char *force_constraint_help; /**< @brief Enforce structure constraints help description.  */
   int allow_isolated_flag;	/**< @brief Allow isolated base-pairs (default=off).  */
   const char *allow_isolated_help; /**< @brief Allow isolated base-pairs help description.  */
   int show_energy_flag;	/**< @brief calculate the free energy of the predicted joint structure (default=off).  */
@@ -97,8 +97,6 @@ struct gengetopt_args_info
   char * rip_arg;	/**< @brief Import posterior probabilities from the result of RIP.  */
   char * rip_orig;	/**< @brief Import posterior probabilities from the result of RIP original value given at command line.  */
   const char *rip_help; /**< @brief Import posterior probabilities from the result of RIP help description.  */
-  int duplex_flag;	/**< @brief Use pf_duplex routine (default=off).  */
-  const char *duplex_help; /**< @brief Use pf_duplex routine help description.  */
   int no_bl_flag;	/**< @brief do not use BL parameters (default=off).  */
   const char *no_bl_help; /**< @brief do not use BL parameters help description.  */
   
@@ -118,14 +116,13 @@ struct gengetopt_args_info
   unsigned int zscore_given ;	/**< @brief Whether zscore was given.  */
   unsigned int num_shuffling_given ;	/**< @brief Whether num-shuffling was given.  */
   unsigned int seed_given ;	/**< @brief Whether seed was given.  */
-  unsigned int contrafold_given ;	/**< @brief Whether contrafold was given.  */
   unsigned int use_constraint_given ;	/**< @brief Whether use-constraint was given.  */
+  unsigned int force_constraint_given ;	/**< @brief Whether force-constraint was given.  */
   unsigned int allow_isolated_given ;	/**< @brief Whether allow-isolated was given.  */
   unsigned int show_energy_given ;	/**< @brief Whether show-energy was given.  */
   unsigned int param_file_given ;	/**< @brief Whether param-file was given.  */
   unsigned int no_pk_given ;	/**< @brief Whether no-pk was given.  */
   unsigned int rip_given ;	/**< @brief Whether rip was given.  */
-  unsigned int duplex_given ;	/**< @brief Whether duplex was given.  */
   unsigned int no_bl_given ;	/**< @brief Whether no-bl was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */
