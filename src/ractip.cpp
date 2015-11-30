@@ -98,6 +98,7 @@ public:
       in_pk_(true),
       use_contrafold_(false),
       use_pf_duplex_(false),
+      use_constraint_(false),
       stacking_constraints_(true),
       show_energy_(false),
       run_with_modena_(false),
@@ -116,7 +117,7 @@ public:
 
   RactIP& parse_options(int& argc, char**& argv);
   int run();
-  float solve(const std::string& s1, const std::string& s2,
+  float solve(const Fasta& fa1, const Fasta& fa2,
               std::string& r1, std::string& r2,
               float* e1=NULL, float* e2=NULL, float* e3=NULL);
   float solve_ss(const std::string& s, const VF& bp, const VI& offset,
@@ -132,7 +133,7 @@ private:
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
   void rnafold(const std::string& seq, VF& bp, VI& offset) const;
   void rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const;
-  void rnaduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
+  void rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const;
   void load_from_rip(const char* filename,
                      const std::string& s1, const std::string& s2,
                      VF& bp1, VI& offset1, VF& bp2, VI& offset2, VVF& hp) const;
@@ -155,6 +156,7 @@ private:
   bool in_pk_;                 // allow internal pseudoknots or not
   bool use_contrafold_;        // use CONTRAfold model or not
   bool use_pf_duplex_;
+  bool use_constraint_;
   bool stacking_constraints_;
   bool show_energy_;
   bool run_with_modena_;
@@ -310,8 +312,10 @@ rnafold(const std::string& seq, VF& bp, VI& offset, VVF& up, uint max_w) const
 
 void
 RactIP::
-rnaduplex(const std::string& s1, const std::string& s2, VVF& hp) const
+rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
 {
+  const std::string& s1=fa1.seq();
+  const std::string& s2=fa2.seq();
   if (use_pf_duplex_)
   {
     Vienna::pf_scale = -1;
@@ -403,9 +407,11 @@ load_from_rip(const char* filename,
 
 float
 RactIP::
-solve(const std::string& s1, const std::string& s2, std::string& r1, std::string& r2,
+solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
       float* e1 /* =NULL */, float* e2 /* =NULL */, float* e3 /* =NULL */)
 {
+  const std::string& s1=fa1.seq();
+  const std::string& s2=fa2.seq();
   IP ip(IP::MAX, n_th_);
   bool enable_accessibility = min_w_>1 && max_w_>=min_w_;
   bool enable_structure_s1 = !acc_max_;
@@ -421,13 +427,13 @@ solve(const std::string& s1, const std::string& s2, std::string& r1, std::string
     contrafold(s1, bp1_, offset1_, up1_);
     contrafold(s2, bp2_, offset2_, up2_);
     //contraduplex(s1_, s2_, hp_);
-    rnaduplex(s1, s2, hp_);
+    rnaduplex(fa1, fa2, hp_);
   }
   else
   {
     rnafold(s1, bp1_, offset1_, up1_, std::max(1, max_w_));
     rnafold(s2, bp2_, offset2_, up2_, std::max(1, max_w_));
-    rnaduplex(s1, s2, hp_);
+    rnaduplex(fa1, fa2, hp_);
   }
   
   // make objective variables with their weights
@@ -1247,6 +1253,7 @@ parse_options(int& argc, char**& argv)
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.contrafold_flag==1;
   use_pf_duplex_ = args_info.duplex_flag==1;
+  use_constraint_ = args_info.use_constraint_flag==1;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
   //run_with_modena_ = args_info.modena_flag;
   n_th_ = 1; // args_info.n_th_arg;
@@ -1342,12 +1349,12 @@ run()
   float /*ea, */ e1, e2, e3, e1s, e2s;
   if (show_energy_ || enable_zscore_==1 || enable_zscore_==2 || enable_zscore_==12)
   {
-    /*ea = */ solve(fa1.seq(), fa2.seq(), r1, r2, &e1, &e2, &e3);
+    /*ea = */ solve(fa1, fa2, r1, r2, &e1, &e2, &e3);
     solve_ss(fa1.seq(), bp1_, offset1_, r1s, &e1s);
     solve_ss(fa2.seq(), bp2_, offset2_, r2s, &e2s);
   }
   else
-    /*ea = */ solve(fa1.seq(), fa2.seq(), r1, r2);
+    /*ea = */ solve(fa1, fa2, r1, r2);
 
   // display the result
   std::cout << ">" << fa1.name() << std::endl
@@ -1388,7 +1395,7 @@ run()
         if (enable_zscore_==2 || enable_zscore_==12)
           uShuffle::shuffle(fa2.seq().c_str(), &s2[0], fa2.seq().size(), 2);
         float ee1, ee2, ee3, ee1s, ee2s;
-        solve(s1, s2, r1, r2, &ee1, &ee2, &ee3);
+        solve(Fasta(fa1.name(), s1), Fasta(fa2.name(), s2), r1, r2, &ee1, &ee2, &ee3);
         solve_ss(s1, bp1_, offset1_, r1s, &ee1s);
         solve_ss(s2, bp2_, offset2_, r2s, &ee2s);
         float ee=ee1+ee2+ee3;

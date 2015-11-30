@@ -83,6 +83,8 @@ struct gengetopt_args_info
   const char *seed_help; /**< @brief Seed for random number generator help description.  */
   int contrafold_flag;	/**< @brief Use CONTRAfold model for folding (default=off).  */
   const char *contrafold_help; /**< @brief Use CONTRAfold model for folding help description.  */
+  int use_constraint_flag;	/**< @brief Use structure constraints (default=off).  */
+  const char *use_constraint_help; /**< @brief Use structure constraints help description.  */
   int allow_isolated_flag;	/**< @brief Allow isolated base-pairs (default=off).  */
   const char *allow_isolated_help; /**< @brief Allow isolated base-pairs help description.  */
   int show_energy_flag;	/**< @brief calculate the free energy of the predicted joint structure (default=off).  */
@@ -117,6 +119,7 @@ struct gengetopt_args_info
   unsigned int num_shuffling_given ;	/**< @brief Whether num-shuffling was given.  */
   unsigned int seed_given ;	/**< @brief Whether seed was given.  */
   unsigned int contrafold_given ;	/**< @brief Whether contrafold was given.  */
+  unsigned int use_constraint_given ;	/**< @brief Whether use-constraint was given.  */
   unsigned int allow_isolated_given ;	/**< @brief Whether allow-isolated was given.  */
   unsigned int show_energy_given ;	/**< @brief Whether show-energy was given.  */
   unsigned int param_file_given ;	/**< @brief Whether param-file was given.  */

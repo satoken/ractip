@@ -34,6 +34,8 @@ option "seed"		 - "Seed for random number generator"
 #			   flag off
 option "contrafold"	 - "Use CONTRAfold model for folding"
        			   flag off hidden
+option "use-constraint"	 c "Use structure constraints"
+       			   flag off hidden
 option "allow-isolated"  - "Allow isolated base-pairs"
 			   flag off
 option "show-energy"	 e "calculate the free energy of the predicted joint structure"
