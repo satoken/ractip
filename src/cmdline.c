@@ -50,6 +50,7 @@ const char *gengetopt_args_info_full_help[] = {
   "      --zscore=INT           Calculate z-score via dishuffling (0=no shuffling,\n                               1=1st seq only, 2=2nd seq only, or 12=both)\n                               (default=`0')",
   "      --num-shuffling=INT    The number of shuffling  (default=`1000')",
   "      --seed=INT             Seed for random number generator  (default=`0')",
+  "      --contrafold           Use CONTRAfold model for folding  (default=off)",
   "  -c, --use-constraint       Use structure constraints  (default=off)",
   "      --force-constraint     Enforce structure constraints  (default=off)",
   "      --allow-isolated       Allow isolated base-pairs  (default=off)",
@@ -80,14 +81,16 @@ init_help_array(void)
   gengetopt_args_info_help[13] = gengetopt_args_info_full_help[13];
   gengetopt_args_info_help[14] = gengetopt_args_info_full_help[14];
   gengetopt_args_info_help[15] = gengetopt_args_info_full_help[15];
-  gengetopt_args_info_help[16] = gengetopt_args_info_full_help[18];
-  gengetopt_args_info_help[17] = gengetopt_args_info_full_help[19];
-  gengetopt_args_info_help[18] = gengetopt_args_info_full_help[20];
-  gengetopt_args_info_help[19] = 0; 
+  gengetopt_args_info_help[16] = gengetopt_args_info_full_help[17];
+  gengetopt_args_info_help[17] = gengetopt_args_info_full_help[18];
+  gengetopt_args_info_help[18] = gengetopt_args_info_full_help[19];
+  gengetopt_args_info_help[19] = gengetopt_args_info_full_help[20];
+  gengetopt_args_info_help[20] = gengetopt_args_info_full_help[21];
+  gengetopt_args_info_help[21] = 0; 
   
 }
 
-const char *gengetopt_args_info_help[20];
+const char *gengetopt_args_info_help[22];
 
 typedef enum {ARG_NO
   , ARG_FLAG
@@ -128,6 +131,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->zscore_given = 0 ;
   args_info->num_shuffling_given = 0 ;
   args_info->seed_given = 0 ;
+  args_info->contrafold_given = 0 ;
   args_info->use_constraint_given = 0 ;
   args_info->force_constraint_given = 0 ;
   args_info->allow_isolated_given = 0 ;
@@ -166,6 +170,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->num_shuffling_orig = NULL;
   args_info->seed_arg = 0;
   args_info->seed_orig = NULL;
+  args_info->contrafold_flag = 0;
   args_info->use_constraint_flag = 0;
   args_info->force_constraint_flag = 0;
   args_info->allow_isolated_flag = 0;
@@ -200,14 +205,15 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->zscore_help = gengetopt_args_info_full_help[13] ;
   args_info->num_shuffling_help = gengetopt_args_info_full_help[14] ;
   args_info->seed_help = gengetopt_args_info_full_help[15] ;
-  args_info->use_constraint_help = gengetopt_args_info_full_help[16] ;
-  args_info->force_constraint_help = gengetopt_args_info_full_help[17] ;
-  args_info->allow_isolated_help = gengetopt_args_info_full_help[18] ;
-  args_info->show_energy_help = gengetopt_args_info_full_help[19] ;
-  args_info->param_file_help = gengetopt_args_info_full_help[20] ;
-  args_info->no_pk_help = gengetopt_args_info_full_help[21] ;
-  args_info->rip_help = gengetopt_args_info_full_help[22] ;
-  args_info->no_bl_help = gengetopt_args_info_full_help[23] ;
+  args_info->contrafold_help = gengetopt_args_info_full_help[16] ;
+  args_info->use_constraint_help = gengetopt_args_info_full_help[17] ;
+  args_info->force_constraint_help = gengetopt_args_info_full_help[18] ;
+  args_info->allow_isolated_help = gengetopt_args_info_full_help[19] ;
+  args_info->show_energy_help = gengetopt_args_info_full_help[20] ;
+  args_info->param_file_help = gengetopt_args_info_full_help[21] ;
+  args_info->no_pk_help = gengetopt_args_info_full_help[22] ;
+  args_info->rip_help = gengetopt_args_info_full_help[23] ;
+  args_info->no_bl_help = gengetopt_args_info_full_help[24] ;
   
 }
 
@@ -385,6 +391,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "num-shuffling", args_info->num_shuffling_orig, 0);
   if (args_info->seed_given)
     write_into_file(outfile, "seed", args_info->seed_orig, 0);
+  if (args_info->contrafold_given)
+    write_into_file(outfile, "contrafold", 0, 0 );
   if (args_info->use_constraint_given)
     write_into_file(outfile, "use-constraint", 0, 0 );
   if (args_info->force_constraint_given)
@@ -675,6 +683,7 @@ cmdline_parser_internal (
         { "zscore",	1, NULL, 0 },
         { "num-shuffling",	1, NULL, 0 },
         { "seed",	1, NULL, 0 },
+        { "contrafold",	0, NULL, 0 },
         { "use-constraint",	0, NULL, 'c' },
         { "force-constraint",	0, NULL, 0 },
         { "allow-isolated",	0, NULL, 0 },
@@ -918,6 +927,18 @@ cmdline_parser_internal (
                 &(local_args_info.seed_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "seed", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Use CONTRAfold model for folding.  */
+          else if (strcmp (long_options[option_index].name, "contrafold") == 0)
+          {
+          
+          
+            if (update_arg((void *)&(args_info->contrafold_flag), 0, &(args_info->contrafold_given),
+                &(local_args_info.contrafold_given), optarg, 0, 0, ARG_FLAG,
+                check_ambiguity, override, 1, 0, "contrafold", '-',
                 additional_error))
               goto failure;
           

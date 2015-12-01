@@ -32,12 +32,12 @@ option "seed"		 - "Seed for random number generator"
        			   int default="0" optional
 # option "mccaskill"	 m "Use McCaskill model for folding"
 #			   flag off
-# option "contrafold"	 - "Use CONTRAfold model for folding"
-#        			   flag off hidden
+option "contrafold"	 - "Use CONTRAfold model for folding"
+       			   flag off hidden
 option "use-constraint"	 c "Use structure constraints"
-       			   flag off hidden
+       			   flag off
 option "force-constraint" - "Enforce structure constraints"
-       			   flag off hidden
+       			   flag off
 option "allow-isolated"  - "Allow isolated base-pairs"
 			   flag off
 option "show-energy"	 e "calculate the free energy of the predicted joint structure"

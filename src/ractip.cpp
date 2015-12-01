@@ -32,13 +32,18 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <stack>
+#include <cassert>
+#include <cmath>
 #include "fa.h"
 #include "ip.h"
 
+#ifdef USE_CONTRAFOLD
 #include "contrafold/SStruct.hpp"
 #include "contrafold/InferenceEngine.hpp"
 #include "contrafold/DuplexEngine.hpp"
 #include "contrafold/Defaults.ipp"
+#endif
 
 namespace Vienna {
 extern "C" {
@@ -130,8 +135,10 @@ public:
                                 const std::string r1, const std::string& r2);
 
 private:
+#ifdef USE_CONTRAFOLD
   void contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const;
   void contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const;
+#endif
   void rnafold(const Fasta& fa, VF& bp, VI& offset) const;
   void rnafold(const Fasta& fa, VF& bp, VI& offset, VVF& up, uint max_w) const;
   void rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const;
@@ -178,6 +185,7 @@ private:
   VVF up2_;
 };
 
+#ifdef USE_CONTRAFOLD
 void
 RactIP::
 contrafold(const std::string& seq, VF& bp, VI& offset, VVF& up) const
@@ -229,6 +237,7 @@ contraduplex(const std::string& seq1, const std::string& seq2, VVF& hp) const
     for (uint j=0; j!=seq2.size(); ++j)
       hp[i+1][j+1] = ip[en.GetOffset(i+1)+(j+1)];
 }
+#endif
 
 void
 RactIP::
@@ -517,6 +526,7 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
   {
     load_from_rip(rip_file_.c_str(), s1, s2, bp1_, offset1_, bp2_, offset2_, hp_);
   }
+#ifdef USE_CONTRAFOLD
   else if (use_contrafold_)
   {
     contrafold(s1, bp1_, offset1_, up1_);
@@ -524,6 +534,7 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
     //contraduplex(s1_, s2_, hp_);
     rnaduplex(fa1, fa2, hp_);
   }
+#endif
   else
   {
     rnafold(fa1, bp1_, offset1_, up1_, std::max(1, max_w_));
@@ -1460,7 +1471,7 @@ parse_options(int& argc, char**& argv)
   num_shuffling_ = args_info.num_shuffling_arg;
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
-  //use_contrafold_ = args_info.contrafold_flag==1;
+  use_contrafold_ = args_info.contrafold_flag==1;
   //use_pf_duplex_ = args_info.duplex_flag==1;
   use_constraint_ = args_info.use_constraint_flag==1;
   force_constraint_ = args_info.force_constraint_flag==1;
@@ -1472,6 +1483,17 @@ parse_options(int& argc, char**& argv)
   if (args_info.param_file_given) param_file_ = args_info.param_file_arg;
   use_bl_param_ = args_info.no_bl_flag==0;
 
+#ifndef USE_CONTRAFOLD
+  if (use_contrafold_)
+  {
+    std::cout << "ERROR: This binary is not configured for using CONTRAfold." 
+              << std::endl << std::endl;
+    cmdline_parser_print_help();
+    cmdline_parser_free(&args_info);
+    exit(1);
+  }
+#endif
+  
   if (args_info.inputs_num==0 ||
       (min_w_!=0 && max_w_!=0 && (min_w_>max_w_ || use_contrafold_)))
   {
@@ -1479,6 +1501,7 @@ parse_options(int& argc, char**& argv)
     cmdline_parser_free(&args_info);
     exit(1);
   }
+
   if (args_info.inputs_num>=1)
     fa1_ = args_info.inputs[0];
   if (args_info.inputs_num>=2)
