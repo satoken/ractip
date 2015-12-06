@@ -259,8 +259,8 @@ pf_duplex(const char *s1, const char *s2)
 
   pr_duplex = (double **) space(sizeof(double *) * (n1+1));
   for (i=1; i<=n1; i++) pr_duplex[i] = (double *) space(sizeof(double) * (n2+1));
-  pr_duplex2 = (double **) space(sizeof(double *) * (n1+1));
-  for (i=1; i<=n1; i++) pr_duplex2[i] = (double *) space(sizeof(double) * (n2+1));
+  /* pr_duplex2 = (double **) space(sizeof(double *) * (n1+1)); */
+  /* for (i=1; i<=n1; i++) pr_duplex2[i] = (double *) space(sizeof(double) * (n2+1)); */
 
   for (i=1; i<=n1; i++) {
     for (j=n2; j>0; j--) {

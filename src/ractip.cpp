@@ -33,8 +33,10 @@
 #include <vector>
 #include <list>
 #include <stack>
+#include <stdexcept>
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include "fa.h"
 #include "ip.h"
 
@@ -1265,7 +1267,11 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
     }
     if (e1!=NULL)
     {
+#ifdef GASCONST
       const double kT = (Vienna::temperature+K0)*GASCONST/1000.;
+#else
+      const double kT = (Vienna::temperature+273.15)*1.98717/1000.;
+#endif
       *e1=0.0;
       for (uint j=0; j!=v.size(); ++j)
         if (ip.get_value(v[j])>0.5)
@@ -1306,7 +1312,11 @@ solve(const Fasta& fa1, const Fasta& fa2, std::string& r1, std::string& r2,
     }
     if (e2!=NULL)
     {
+#ifdef GASCONST
       const double kT = (Vienna::temperature+K0)*GASCONST/1000.;
+#else
+      const double kT = (Vienna::temperature+273.15)*1.98717/1000.;
+#endif
       *e2=0.0;
       for (uint j=0; j!=w.size(); ++j)
         if (ip.get_value(w[j])>0.5)
