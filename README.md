@@ -7,7 +7,7 @@ Requirements
 * [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 1.8)
 * [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41)
   or [Gurobi Optimizer](http://www.gurobi.com/) (>=2.0)
-  or [ILOG CPLEX](http://http://www-01.ibm.com/software/integration/optimization/cplex/) (>=12.0)
+  or [ILOG CPLEX](http://www.ibm.com/software/products/ibmilogcple/) (>=12.0)
 
 Install
 -------
@@ -18,16 +18,13 @@ For GLPK,
 
 For Gurobi,
 
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi
+	./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi=/path/to/gurobi
 
 For CPLEX,
 
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-cplex
-
-You may have to specify the include path and the library path by CPPFLAGS and LDFLAGS like
-
-	env CPPFLAGS='-I/path/to/gurobi/include' LDFLAGS='-L/path/to/gurobi/lib' \
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi
+	./configure --with-vienna-rna=/path/to/vienna-rna --with-cplex \
+	            --with-cplex-include=/path/to/cplex/include \
+		        --with-cplex-lib=/path/to/cplex/lib
 
 Then,
 
@@ -37,7 +34,7 @@ Then,
 Usage
 -----
 
-Ractip can take two FASTA formatted RNA sequences as input, the
+RactIP can take two FASTA formatted RNA sequences as input, the
 predict their joint secondary structures.
 
 	Usage: ractip [OPTIONS]... [FILES]...

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.15])
-AC_INIT([ractip], [1.0.1], [satoken@bio.keio.ac.jp])
+AC_INIT([ractip], [1.0.0], [satoken@bio.keio.ac.jp])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_SRCDIR([src/ractip.cpp])
@@ -98,7 +98,7 @@ AC_ARG_WITH([gurobi], AS_HELP_STRING([--with-gurobi(=PATH)], [support Gurobi opt
 )
 
 # Vienna RNA package
-AC_ARG_WITH([vienna-rna], AS_HELP_STRING([--with-vienna-rna], [support Vienna RNA package]),
+AC_ARG_WITH([vienna-rna], AS_HELP_STRING([--with-vienna-rna(=PATH)], [support Vienna RNA package]),
   if test "$with_vienna_rna" != "yes" && test "$with_vienna_rna" != "no" ; then
      CPPFLAGS="-I${with_vienna_rna}/include $CPPFLAGS"
      LDFLAGS="-L${with_vienna_rna}/lib $LDFLAGS"
