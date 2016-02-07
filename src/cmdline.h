@@ -99,6 +99,8 @@ struct gengetopt_args_info
   char * rip_arg;	/**< @brief Import posterior probabilities from the result of RIP.  */
   char * rip_orig;	/**< @brief Import posterior probabilities from the result of RIP original value given at command line.  */
   const char *rip_help; /**< @brief Import posterior probabilities from the result of RIP help description.  */
+  int duplex_flag;	/**< @brief Use pf_duplex routine (default=off).  */
+  const char *duplex_help; /**< @brief Use pf_duplex routine help description.  */
   int no_bl_flag;	/**< @brief do not use BL parameters (default=off).  */
   const char *no_bl_help; /**< @brief do not use BL parameters help description.  */
   
@@ -126,6 +128,7 @@ struct gengetopt_args_info
   unsigned int param_file_given ;	/**< @brief Whether param-file was given.  */
   unsigned int no_pk_given ;	/**< @brief Whether no-pk was given.  */
   unsigned int rip_given ;	/**< @brief Whether rip was given.  */
+  unsigned int duplex_given ;	/**< @brief Whether duplex was given.  */
   unsigned int no_bl_given ;	/**< @brief Whether no-bl was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */

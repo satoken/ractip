@@ -404,7 +404,7 @@ rnaduplex(const Fasta& fa1, const Fasta& fa2, VVF& hp) const
     hp.clear();
     hp.resize(s1.size()+1, VF(s2.size()+1, 0.0));
     std::string s=s1+s2;
-    std::string c(s.size(), 'e');
+    std::string c(s.size(), '.');
     if (use_constraint_)
     {
       const std::string str1=fa1.str();
@@ -1486,7 +1486,7 @@ parse_options(int& argc, char**& argv)
   seed_ = args_info.seed_arg;
   in_pk_ = args_info.no_pk_flag==0;
   use_contrafold_ = args_info.contrafold_flag==1;
-  //use_pf_duplex_ = args_info.duplex_flag==1;
+  use_pf_duplex_ = args_info.duplex_flag==1;
   use_constraint_ = args_info.use_constraint_flag==1;
   force_constraint_ = args_info.force_constraint_flag==1;
   stacking_constraints_ = args_info.allow_isolated_flag==0;
