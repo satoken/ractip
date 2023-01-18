@@ -10,3 +10,4 @@ config.status
 src/ractip
 .dirstamp
 stamp-h1
+build

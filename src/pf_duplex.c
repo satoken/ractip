@@ -30,7 +30,7 @@
 #include <ctype.h>
 #include <string.h>
 
-inline
+//inline
 double
 LogAdd(double x, double y)
 {
