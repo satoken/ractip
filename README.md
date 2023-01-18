@@ -14,22 +14,20 @@ Install
 
 For GLPK,
 
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-glpk
+        export PKG_CONFIG_PATH=/path/to/viennarna/lib/pkgconfig:$PKG_CONFIG_PATH
+        mkdir build && cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..  # configure
+		cmake --build . # build
+		cmake --install . # install (optional)
 
-For Gurobi,
+For Gurobi, add ``-DENABLE_GUROBI`` to the configure step:
 
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-gurobi=/path/to/gurobi
+        cmake -DENABLE_GUROBI -DCMAKE_BUILD_TYPE=Release ..  # configure
 
-For CPLEX,
+For CPLEX, add ``-DENABLE_CPLEX`` to the configure step:
 
-	./configure --with-vienna-rna=/path/to/vienna-rna --with-cplex \
-	            --with-cplex-include=/path/to/cplex/include \
-		        --with-cplex-lib=/path/to/cplex/lib
+        cmake -DENABLE_CPLEX -DCMAKE_BUILD_TYPE=Release ..  # configure
 
-Then,
-
-	make
-	make install
 
 Usage
 -----
@@ -72,4 +70,6 @@ References
 * Kato, Y., Sato, K., Hamada, M., Watanabe, Y., Asai, K., Akutsu, T.:
   RactIP: fast and accurate prediction of RNA-RNA interaction using
   integer programming. *Bioinformatics*, 26(18):i460-i466, 2010.
-
+* Kato, Y., Mori, T., Sato, K., Maegawa, S., Hosokawa, H., Akutsu, T.:
+  An accessibility-incorporated method for accurate prediction of RNA–RNA 
+  interactions from sequence data, *Bioinformatics*, 33(2):202-209, 2017.
