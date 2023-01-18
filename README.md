@@ -4,9 +4,9 @@ RactIP for predicting RNA-RNA interaction using integer programming
 Requirements
 ------------
 
-* [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 1.8)
+* [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 2.2.0)
 * [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41)
-  or [Gurobi Optimizer](http://www.gurobi.com/) (>=2.0)
+  or [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0)
   or [ILOG CPLEX](http://www.ibm.com/software/products/ibmilogcple/) (>=12.0)
 
 Install
@@ -14,19 +14,19 @@ Install
 
 For GLPK,
 
-        export PKG_CONFIG_PATH=/path/to/viennarna/lib/pkgconfig:$PKG_CONFIG_PATH
-        mkdir build && cd build
-        cmake -DCMAKE_BUILD_TYPE=Release ..  # configure
-		cmake --build . # build
-		cmake --install . # install (optional)
+	export PKG_CONFIG_PATH=/path/to/viennarna/lib/pkgconfig:$PKG_CONFIG_PATH
+	mkdir build && cd build
+	cmake -DCMAKE_BUILD_TYPE=Release ..  # configure
+	cmake --build . # build
+	cmake --install . # install (optional)
 
 For Gurobi, add ``-DENABLE_GUROBI`` to the configure step:
 
-        cmake -DENABLE_GUROBI -DCMAKE_BUILD_TYPE=Release ..  # configure
+	cmake -DENABLE_GUROBI -DCMAKE_BUILD_TYPE=Release ..  # configure
 
 For CPLEX, add ``-DENABLE_CPLEX`` to the configure step:
 
-        cmake -DENABLE_CPLEX -DCMAKE_BUILD_TYPE=Release ..  # configure
+	cmake -DENABLE_CPLEX -DCMAKE_BUILD_TYPE=Release ..  # configure
 
 
 Usage
