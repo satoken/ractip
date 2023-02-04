@@ -5,8 +5,8 @@ Requirements
 ------------
 
 * [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 2.2.0)
-* [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41)
-  or [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0)
+* [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41),
+  [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0),
   or [ILOG CPLEX](http://www.ibm.com/software/products/ibmilogcple/) (>=12.0)
 
 Install
@@ -44,7 +44,7 @@ predict their joint secondary structures.
 	-b, --beta=FLOAT           weight for accessibility  (default=`0.0')
 	-t, --fold-th=FLOAT        Threshold for base-pairing probabilities
                                (default=`0.8')
-	-u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities
+	-u, --hybridize-th=FLOAT   Threshold for hybridization probabilities
                                (default=`0.3')
 	-s, --acc-th=FLOAT         Threshold for accessible probabilities
                                (default=`0.005')
