@@ -3,11 +3,16 @@ RactIP for predicting RNA-RNA interaction using integer programming
 
 Requirements
 ------------
-
-* [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 2.2.0)
-* [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41)
-  or [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0)
-  or [ILOG CPLEX](http://www.ibm.com/software/products/ibmilogcple/) (>=12.0)
+* C++17 compatible compiler (tested on Apple clang version 14.0.0 and GCC version 10.2.1)
+* cmake (>= 3.8)
+* pkg-config
+* [Vienna RNA package](https://www.tbi.univie.ac.at/RNA/) (>= 2.2.0)
+* one of these MIP solvers
+    * [GNU Linear Programming Kit](http://www.gnu.org/software/glpk/) (>=4.41)
+    * [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0)
+    * [ILOG CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio) (>=12.0)
+    * [SCIP](https://scipopt.org/) (>= 8.0.3)
+    * [HiGHS](https://highs.dev/) (>= 1.5.0)
 
 Install
 -------
@@ -28,6 +33,13 @@ For CPLEX, add ``-DENABLE_CPLEX`` to the configure step:
 
 	cmake -DENABLE_CPLEX -DCMAKE_BUILD_TYPE=Release ..  # configure
 
+For SCIP, add ``-DENABLE_SCIP`` to the configure step:
+
+    cmake -DENABLE_SCIP -DCMAKE_BUILD_TYPE=Release ..  # configure
+
+For HiGHS, add ``-DENABLE_HIGHS`` to the configure step:
+
+    cmake -DENABLE_HIGHS -DCMAKE_BUILD_TYPE=Release ..  # configure
 
 Usage
 -----
@@ -62,6 +74,15 @@ predict their joint secondary structures.
 The parenthesis '()' and the brackets '[]' indicate the predicted
 internal base-pairs and external base-pairs (interactions),
 respectively. 
+
+### Run with Docker
+
+    docker build . -t ractip
+    docker run -it --rm -v $(pwd):$(pwd) -w $(pwd) ractip ractip DIS.fa DIS.fa
+
+### Run with the web server
+
+The RactIP web server is available at http://ws.sato-lab.org/rtips/ractip/.
 
 
 References
