@@ -14,8 +14,8 @@ project(RactIP CXX C)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 add_definitions(-DPACKAGE="ractip")
-add_definitions(-DVERSION="1.0.2")
-add_definitions(-DPACKAGE_VERSION="1.0.2")
+add_definitions(-DVERSION="1.1.0")
+add_definitions(-DPACKAGE_VERSION="1.1.0")
 
 find_package(PkgConfig REQUIRED)
 
