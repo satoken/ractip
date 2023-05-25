@@ -16,12 +16,12 @@ For GLPK,
 
 	export PKG_CONFIG_PATH=/path/to/viennarna/lib/pkgconfig:$PKG_CONFIG_PATH
 	cmake -DCMAKE_BUILD_TYPE=Release -S . -B build  # configure
-	cmake --build build # build
-	sudo cmake --install build # install (optional)
+	cmake --build build  # build
+	sudo cmake --install build  # install (optional)
 
 For Gurobi, add ``-DENABLE_GUROBI`` to the configure step:
 
-	cmake -DENABLE_GUROBI=true -DCMAKE_BUILD_TYPE=Release -S . -B build # configure
+	cmake -DENABLE_GUROBI=true -DCMAKE_BUILD_TYPE=Release -S . -B build  # configure
 
 For CPLEX, add ``-DENABLE_CPLEX`` to the configure step:
 
