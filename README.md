@@ -43,9 +43,9 @@ predict their joint secondary structures.
 	-b, --beta=FLOAT           weight for accessibility  (default=`0.0')
   	-t, --fold-th=FLOAT        Threshold for base-pairing probabilities
                                (default=`0.5')
-  	-u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities
+	-u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities
                                (default=`0.1')
-  	-s, --acc-th=FLOAT         Threshold for accessible probabilities
+	-s, --acc-th=FLOAT         Threshold for accessible probabilities
                                (default=`0.003')
 		--acc-max              optimize for accessibility instead of internal
                                secondary structures  (default=off)
@@ -60,11 +60,11 @@ predict their joint secondary structures.
 		--zscore=INT           Calculate z-score via dishuffling (0=no shuffling,
                                1=1st seq only, 2=2nd seq only, or 12=both)
                                (default=`0')
-    	--num-shuffling=INT    The number of shuffling  (default=`1000')
-      	--seed=INT             Seed for random number generator  (default=`0')
+		--num-shuffling=INT    The number of shuffling  (default=`1000')
+		--seed=INT             Seed for random number generator  (default=`0')
 	-c, --use-constraint       Use structure constraints  (default=off)
-    	--force-constraint     Enforce structure constraints  (default=off)
-    	--allow-isolated       Allow isolated base-pairs  (default=off)
+		--force-constraint     Enforce structure constraints  (default=off)
+		--allow-isolated       Allow isolated base-pairs  (default=off)
 	-e, --show-energy          calculate the free energy of the predicted joint
                                structure  (default=off)
 	-P, --param-file=FILENAME  Read the energy parameter file for Vienna RNA
