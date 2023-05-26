@@ -37,18 +37,38 @@ predict their joint secondary structures.
 	Usage: ractip [OPTIONS]... [FILES]...
 
 	-h, --help                 Print help and exit
-        --full-help            Print help, including hidden options, and exit
+    	--full-help            Print help, including hidden options, and exit
 	-V, --version              Print version and exit
-	-a, --alpha=FLOAT          weight for hybridization  (default=`0.6')
+	-a, --alpha=FLOAT          weight for hybridization  (default=`0.7')
 	-b, --beta=FLOAT           weight for accessibility  (default=`0.0')
-	-t, --fold-th=FLOAT        Threshold for base-pairing probabilities
-                               (default=`0.8')
-	-u, --hybridize-th=FLOAT   Threshold for hybridization probabilities
-                               (default=`0.3')
-	-s, --acc-th=FLOAT         Threshold for accessible probabilities
-                               (default=`0.005')
+  	-t, --fold-th=FLOAT        Threshold for base-pairing probabilities
+                               (default=`0.5')
+  	-u, --hybridize-th=FLOAT   Threshold for hybridazation probabilities
+                               (default=`0.1')
+  	-s, --acc-th=FLOAT         Threshold for accessible probabilities
+                               (default=`0.003')
+    	--acc-max              optimize for accessibility instead of internal
+                               secondary structures  (default=off)
+    	--acc-max-ss           additional prediction of interanal secondary
+                               structures  (default=off)
+    	--acc-num=INT          the number of accessible regions (0=unlimited)
+                               (default=`1')
+    	--max-w=INT            Maximum length of accessible regions
+                               (default=`15')
+    	--min-w=INT            Minimum length of accessible regions
+                               (default=`5')
+    	--zscore=INT           Calculate z-score via dishuffling (0=no shuffling,
+                               1=1st seq only, 2=2nd seq only, or 12=both)
+                               (default=`0')
+    	--num-shuffling=INT    The number of shuffling  (default=`1000')
+      	--seed=INT             Seed for random number generator  (default=`0')
+	-c, --use-constraint       Use structure constraints  (default=off)
+    	--force-constraint     Enforce structure constraints  (default=off)
+    	--allow-isolated       Allow isolated base-pairs  (default=off)
 	-e, --show-energy          calculate the free energy of the predicted joint
                                structure  (default=off)
+	-P, --param-file=FILENAME  Read the energy parameter file for Vienna RNA
+                               package
 
 	% ractip DIS.fa DIS.fa
 	>DIS
@@ -58,7 +78,7 @@ predict their joint secondary structures.
 	CUCGGCUUGCUGAGGUGCACACAGCAAGAGGCGAG
 	((((.(((((((..]]]]]].)))))))...))))
 
-The parenthesis '()' and the brackets '[]' indicate the predicted
+The parentheses '()' and the brackets '[]' indicate the predicted
 internal base-pairs and external base-pairs (interactions),
 respectively. 
 
