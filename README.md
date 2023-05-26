@@ -37,7 +37,7 @@ predict their joint secondary structures.
 	Usage: ractip [OPTIONS]... [FILES]...
 
 	-h, --help                 Print help and exit
-		--full-help            Print help, including hidden options, and exit
+	    --full-help            Print help, including hidden options, and exit
 	-V, --version              Print version and exit
 	-a, --alpha=FLOAT          weight for hybridization  (default=`0.7')
 	-b, --beta=FLOAT           weight for accessibility  (default=`0.0')
