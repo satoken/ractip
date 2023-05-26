@@ -47,24 +47,24 @@ predict their joint secondary structures.
                                (default=`0.1')
 	-s, --acc-th=FLOAT         Threshold for accessible probabilities
                                (default=`0.003')
-		--acc-max              optimize for accessibility instead of internal
+	    --acc-max              optimize for accessibility instead of internal
                                secondary structures  (default=off)
-		--acc-max-ss           additional prediction of interanal secondary
+	    --acc-max-ss           additional prediction of interanal secondary
                                structures  (default=off)
-		--acc-num=INT          the number of accessible regions (0=unlimited)
+	    --acc-num=INT          the number of accessible regions (0=unlimited)
                                (default=`1')
-		--max-w=INT            Maximum length of accessible regions
+	    --max-w=INT            Maximum length of accessible regions
                                (default=`15')
-		--min-w=INT            Minimum length of accessible regions
+	    --min-w=INT            Minimum length of accessible regions
                                (default=`5')
-		--zscore=INT           Calculate z-score via dishuffling (0=no shuffling,
+	    --zscore=INT           Calculate z-score via dishuffling (0=no shuffling,
                                1=1st seq only, 2=2nd seq only, or 12=both)
                                (default=`0')
-		--num-shuffling=INT    The number of shuffling  (default=`1000')
-		--seed=INT             Seed for random number generator  (default=`0')
+	    --num-shuffling=INT    The number of shuffling  (default=`1000')
+	    --seed=INT             Seed for random number generator  (default=`0')
 	-c, --use-constraint       Use structure constraints  (default=off)
-		--force-constraint     Enforce structure constraints  (default=off)
-		--allow-isolated       Allow isolated base-pairs  (default=off)
+	    --force-constraint     Enforce structure constraints  (default=off)
+	    --allow-isolated       Allow isolated base-pairs  (default=off)
 	-e, --show-energy          calculate the free energy of the predicted joint
                                structure  (default=off)
 	-P, --param-file=FILENAME  Read the energy parameter file for Vienna RNA
