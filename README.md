@@ -78,7 +78,7 @@ predict their joint secondary structures.
 	CUCGGCUUGCUGAGGUGCACACAGCAAGAGGCGAG
 	((((.(((((((..]]]]]].)))))))...))))
 
-The parentheses '()' and the brackets '[]' indicate the predicted
+The parentheses '( )' and the brackets '[ ]' indicate the predicted
 internal base-pairs and external base-pairs (interactions),
 respectively. 
 
