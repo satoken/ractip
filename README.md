@@ -27,7 +27,7 @@ For CPLEX, add ``-DENABLE_CPLEX`` to the configure step:
 
 	cmake -DENABLE_CPLEX=true -DCMAKE_BUILD_TYPE=Release -S . -B build  # configure
 
-If the optimization solver has been installed to the directory other than ``/usr`` or ``/usr/local``, specify the option ``-DCPLEX_ROOT_DIR=/path/to/CPLEX`` to the configure step for an example of CPLEX.
+If the optimization solver has been installed to the directory other than ``/usr`` or ``/usr/local``, specify the option ``-DCPLEX_ROOT_DIR=/path/to/CPLEX`` in the configure step for an example of CPLEX.
 
 Usage
 -----
