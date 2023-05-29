@@ -7,7 +7,7 @@ Requirements
 * [Vienna RNA package](http://www.tbi.univie.ac.at/~ivo/RNA/) (>= 2.2.0)
 * [GNU Linear Programming Kit (GLPK)](http://www.gnu.org/software/glpk/) (>=4.41),
   [Gurobi Optimizer](http://www.gurobi.com/) (>=8.0),
-  or [ILOG CPLEX](http://www.ibm.com/software/products/ibmilogcple/) (>=12.0)
+  or [ILOG CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio) (>=12.0)
 
 Install
 -------
